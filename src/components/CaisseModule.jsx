@@ -13,7 +13,7 @@ export default function CaisseModule() {
   const [activeView, setActiveView] = useState('ventes') // 'ventes' ou 'achats'
   
   const [newTransaction, setNewTransaction] = useState({
-    categorie: 'vente', // 'vente' ou 'achat'
+    categorie: 'vente', // 'vente', 'achat', ou 'depot_banque'
     type: 'encaissement',
     mode_paiement: 'cash',
     date: new Date().toISOString().split('T')[0],
@@ -106,6 +106,81 @@ export default function CaisseModule() {
     }
   }
 
+  const exportToCSV = () => {
+    const csvData = filteredTransactions.map(t => ({
+      Date: new Date(t.date).toLocaleDateString('fr-FR'),
+      Catégorie: t.categorie === 'vente' ? 'Vente' : t.categorie === 'achat' ? 'Achat' : 'Dépôt Banque',
+      Mode: t.mode_paiement === 'cash' ? 'Cash' : 'Carte',
+      Nom: t.nom,
+      Descriptif: t.descriptif || '',
+      Montant: parseFloat(t.montant).toFixed(2)
+    }))
+
+    // Créer le CSV
+    const headers = Object.keys(csvData[0]).join(',')
+    const rows = csvData.map(row => Object.values(row).join(',')).join('\n')
+    const csv = headers + '\n' + rows
+
+    // Télécharger
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `caisse_${activeView}_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
+  const exportToExcel = () => {
+    // Créer un tableau HTML
+    const tableData = filteredTransactions.map(t => `
+      <tr>
+        <td>${new Date(t.date).toLocaleDateString('fr-FR')}</td>
+        <td>${t.categorie === 'vente' ? 'Vente' : t.categorie === 'achat' ? 'Achat' : 'Dépôt Banque'}</td>
+        <td>${t.mode_paiement === 'cash' ? 'Cash' : 'Carte'}</td>
+        <td>${t.nom}</td>
+        <td>${t.descriptif || ''}</td>
+        <td>${parseFloat(t.montant).toFixed(2)} €</td>
+      </tr>
+    `).join('')
+
+    const html = `
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #4CAF50; color: white; }
+          </style>
+        </head>
+        <body>
+          <h2>Caisse - ${activeView === 'ventes' ? 'Ventes' : activeView === 'achats' ? 'Achats' : 'Dépôts Banque'}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Catégorie</th>
+                <th>Mode</th>
+                <th>Nom</th>
+                <th>Descriptif</th>
+                <th>Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableData}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `
+
+    // Télécharger comme .xls (Excel peut l'ouvrir)
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `caisse_${activeView}_${new Date().toISOString().split('T')[0]}.xls`
+    link.click()
+  }
+
   if (loading) {
     return <div className="text-center py-8">Chargement...</div>
   }
@@ -113,8 +188,13 @@ export default function CaisseModule() {
   // Filtrage
   const transactionsVentes = transactions.filter(t => (t.categorie || 'vente') === 'vente')
   const transactionsAchats = transactions.filter(t => t.categorie === 'achat')
+  const transactionsDepots = transactions.filter(t => t.categorie === 'depot_banque')
   
-  const displayedTransactions = activeView === 'ventes' ? transactionsVentes : transactionsAchats
+  const displayedTransactions = activeView === 'ventes' 
+    ? transactionsVentes 
+    : activeView === 'achats' 
+    ? transactionsAchats 
+    : transactionsDepots
 
   const filteredTransactions = displayedTransactions.filter(t =>
     t.nom.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -129,33 +209,83 @@ export default function CaisseModule() {
   const totalDecaissements = transactionsAchats
     .reduce((sum, t) => sum + parseFloat(t.montant), 0)
 
+  const totalDepots = transactionsDepots
+    .reduce((sum, t) => sum + parseFloat(t.montant), 0)
+
   const cashDisponible = transactions
     .filter(t => t.mode_paiement === 'cash')
     .reduce((sum, t) => {
       const categorie = t.categorie || 'vente'
-      return sum + (categorie === 'vente' ? parseFloat(t.montant) : -parseFloat(t.montant))
+      if (categorie === 'vente') return sum + parseFloat(t.montant)
+      if (categorie === 'achat') return sum - parseFloat(t.montant)
+      if (categorie === 'depot_banque') return sum - parseFloat(t.montant)
+      return sum
     }, 0)
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end items-center">
+      <div className="flex flex-wrap gap-2 justify-end items-center">
         <Button 
           onClick={() => {
             setNewTransaction({
-              ...newTransaction,
-              categorie: activeView === 'ventes' ? 'vente' : 'achat',
-              type: activeView === 'ventes' ? 'encaissement' : 'decaissement'
+              categorie: 'vente',
+              type: 'encaissement',
+              mode_paiement: 'cash',
+              date: new Date().toISOString().split('T')[0],
+              nom: '',
+              montant: '',
+              descriptif: '',
+              photo_ticket: null
             })
-            setShowAddTransaction(!showAddTransaction)
+            setActiveView('ventes')
+            setShowAddTransaction(true)
           }}
-          className="text-sm sm:text-base"
+          className="bg-green-500 hover:bg-green-600 text-white text-sm"
         >
-          + Nouveau
+          + Vente
+        </Button>
+        <Button 
+          onClick={() => {
+            setNewTransaction({
+              categorie: 'achat',
+              type: 'decaissement',
+              mode_paiement: 'cash',
+              date: new Date().toISOString().split('T')[0],
+              nom: '',
+              montant: '',
+              descriptif: '',
+              photo_ticket: null
+            })
+            setActiveView('achats')
+            setShowAddTransaction(true)
+          }}
+          className="bg-red-500 hover:bg-red-600 text-white text-sm"
+        >
+          + Achat
+        </Button>
+        <Button 
+          onClick={() => {
+            setNewTransaction({
+              categorie: 'depot_banque',
+              type: 'decaissement',
+              mode_paiement: 'cash',
+              date: new Date().toISOString().split('T')[0],
+              nom: 'Dépôt banque',
+              montant: '',
+              descriptif: '',
+              photo_ticket: null
+            })
+            setActiveView('depots')
+            setShowAddTransaction(true)
+          }}
+          className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
+        >
+          🏦 Dépôt Banque
         </Button>
       </div>
 
       {/* Cartes de résumé */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg">
           <CardContent className="pt-4 sm:pt-6">
             <p className="text-xs sm:text-sm opacity-90">Total Ventes</p>
@@ -166,6 +296,12 @@ export default function CaisseModule() {
           <CardContent className="pt-4 sm:pt-6">
             <p className="text-xs sm:text-sm opacity-90">Total Achats</p>
             <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalDecaissements.toFixed(2)} €</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg">
+          <CardContent className="pt-4 sm:pt-6">
+            <p className="text-xs sm:text-sm opacity-90">Dépôts Banque</p>
+            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalDepots.toFixed(2)} €</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
@@ -269,11 +405,11 @@ export default function CaisseModule() {
         </Card>
       )}
 
-      {/* Onglets Ventes / Achats */}
-      <div className="flex gap-2 border-b-2 border-gray-200">
+      {/* Onglets Ventes / Achats / Dépôts Banque */}
+      <div className="flex gap-2 border-b-2 border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveView('ventes')}
-          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base ${
+          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
             activeView === 'ventes'
               ? 'border-green-500 text-green-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -286,7 +422,7 @@ export default function CaisseModule() {
         </button>
         <button
           onClick={() => setActiveView('achats')}
-          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base ${
+          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
             activeView === 'achats'
               ? 'border-red-500 text-red-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -295,6 +431,19 @@ export default function CaisseModule() {
           Achats
           <span className="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold">
             {transactionsAchats.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveView('depots')}
+          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
+            activeView === 'depots'
+              ? 'border-purple-500 text-purple-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          🏦 Dépôts Banque
+          <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">
+            {transactionsDepots.length}
           </span>
         </button>
       </div>
@@ -387,7 +536,7 @@ export default function CaisseModule() {
                         )}
                       </td>
                       <td className={`p-1 sm:p-2 text-right font-bold text-xs sm:text-sm ${
-                        activeView === 'ventes' ? 'text-green-600' : 'text-red-600'
+                        activeView === 'ventes' ? 'text-green-600' : activeView === 'achats' ? 'text-red-600' : 'text-purple-600'
                       }`}>
                         {activeView === 'ventes' ? '+' : '-'}{parseFloat(transaction.montant).toFixed(2)} €
                       </td>
@@ -406,6 +555,26 @@ export default function CaisseModule() {
               </tbody>
             </table>
           </div>
+
+          {/* Boutons d'export */}
+          {filteredTransactions.length > 0 && (
+            <div className="mt-4 pt-4 border-t flex flex-wrap gap-2 justify-end">
+              <Button
+                onClick={exportToCSV}
+                variant="ghost"
+                className="text-sm"
+              >
+                📊 Exporter CSV
+              </Button>
+              <Button
+                onClick={exportToExcel}
+                variant="ghost"
+                className="text-sm"
+              >
+                📗 Exporter Excel
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
