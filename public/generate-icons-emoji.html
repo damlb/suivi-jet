@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Générateur icônes JSHS</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    canvas {
+      border: 2px solid #ddd;
+      margin: 20px;
+      border-radius: 10px;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚁 Générateur d'icônes JSHS</h1>
+  <p>Cliquez sur les boutons pour télécharger chaque icône</p>
+  
+  <div>
+    <canvas id="canvas192" width="192" height="192"></canvas>
+    <canvas id="canvas512" width="512" height="512"></canvas>
+  </div>
+  
+  <div>
+    <button onclick="downloadIcon(192)">⬇️ Télécharger icon-192.png</button>
+    <button onclick="downloadIcon(512)">⬇️ Télécharger icon-512.png</button>
+  </div>
+  
+  <script>
+    function createIcon(size) {
+      const canvasId = 'canvas' + size;
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      
+      // Fond blanc
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Emoji hélicoptère
+      ctx.font = `${size * 0.5}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🚁', size/2, size/2 - size*0.05);
+      
+      // Texte JSHS en bas (bleu)
+      ctx.fillStyle = '#3b82f6';
+      ctx.font = `bold ${size/7}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('JSHS', size/2, size - size*0.08);
+    }
+    
+    function downloadIcon(size) {
+      const canvas = document.getElementById('canvas' + size);
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `icon-${size}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        alert('✅ icon-' + size + '.png téléchargé !');
+      });
+    }
+    
+    // Générer les aperçus au chargement
+    window.onload = function() {
+      createIcon(192);
+      createIcon(512);
+    };
+  </script>
+</body>
+</html>
