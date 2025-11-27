@@ -9,14 +9,18 @@ export default function CaisseModule() {
   const [showAddTransaction, setShowAddTransaction] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState('')
+  const [modeFilter, setModeFilter] = useState('') // Nouveau filtre
+  const [activeView, setActiveView] = useState('ventes') // 'ventes' ou 'achats'
   
   const [newTransaction, setNewTransaction] = useState({
+    categorie: 'vente', // 'vente' ou 'achat'
     type: 'encaissement',
     mode_paiement: 'cash',
     date: new Date().toISOString().split('T')[0],
     nom: '',
     montant: '',
-    descriptif: ''
+    descriptif: '',
+    photo_ticket: null
   })
 
   useEffect(() => {
@@ -36,6 +40,21 @@ export default function CaisseModule() {
     setLoading(false)
   }
 
+  const handlePhotoUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    // Créer une preview en base64
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setNewTransaction({
+        ...newTransaction,
+        photo_ticket: reader.result
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
   const addTransaction = async () => {
     if (!newTransaction.nom || !newTransaction.montant) {
       alert('Veuillez remplir tous les champs obligatoires')
@@ -46,12 +65,14 @@ export default function CaisseModule() {
       .from('caisse')
       .insert([
         {
+          categorie: newTransaction.categorie,
           type: newTransaction.type,
           mode_paiement: newTransaction.mode_paiement,
           date: newTransaction.date,
           nom: newTransaction.nom,
           montant: parseFloat(newTransaction.montant),
-          descriptif: newTransaction.descriptif
+          descriptif: newTransaction.descriptif,
+          photo_ticket: newTransaction.photo_ticket
         }
       ])
       .select()
@@ -59,12 +80,14 @@ export default function CaisseModule() {
     if (data) {
       setTransactions([data[0], ...transactions])
       setNewTransaction({
-        type: 'encaissement',
+        categorie: activeView === 'ventes' ? 'vente' : 'achat',
+        type: activeView === 'ventes' ? 'encaissement' : 'decaissement',
         mode_paiement: 'cash',
         date: new Date().toISOString().split('T')[0],
         nom: '',
         montant: '',
-        descriptif: ''
+        descriptif: '',
+        photo_ticket: null
       })
       setShowAddTransaction(false)
     }
@@ -88,52 +111,67 @@ export default function CaisseModule() {
   }
 
   // Filtrage
-  const filteredTransactions = transactions.filter(t =>
+  const transactionsVentes = transactions.filter(t => (t.categorie || 'vente') === 'vente')
+  const transactionsAchats = transactions.filter(t => t.categorie === 'achat')
+  
+  const displayedTransactions = activeView === 'ventes' ? transactionsVentes : transactionsAchats
+
+  const filteredTransactions = displayedTransactions.filter(t =>
     t.nom.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (!dateFilter || t.date === dateFilter)
+    (!dateFilter || t.date === dateFilter) &&
+    (!modeFilter || t.mode_paiement === modeFilter)
   )
 
   // Calculs
-  const totalEncaissements = transactions
-    .filter(t => t.type === 'encaissement')
+  const totalEncaissements = transactionsVentes
     .reduce((sum, t) => sum + parseFloat(t.montant), 0)
 
-  const totalDecaissements = transactions
-    .filter(t => t.type === 'decaissement')
+  const totalDecaissements = transactionsAchats
     .reduce((sum, t) => sum + parseFloat(t.montant), 0)
 
   const cashDisponible = transactions
     .filter(t => t.mode_paiement === 'cash')
     .reduce((sum, t) => {
-      return sum + (t.type === 'encaissement' ? parseFloat(t.montant) : -parseFloat(t.montant))
+      const categorie = t.categorie || 'vente'
+      return sum + (categorie === 'vente' ? parseFloat(t.montant) : -parseFloat(t.montant))
     }, 0)
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end items-center">
-        <Button onClick={() => setShowAddTransaction(!showAddTransaction)}>
-          + Nouvelle transaction
+        <Button 
+          onClick={() => {
+            setNewTransaction({
+              ...newTransaction,
+              categorie: activeView === 'ventes' ? 'vente' : 'achat',
+              type: activeView === 'ventes' ? 'encaissement' : 'decaissement'
+            })
+            setShowAddTransaction(!showAddTransaction)
+          }}
+          className="text-sm sm:text-base"
+        >
+          + Nouveau
         </Button>
       </div>
 
       {/* Cartes de résumé */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg">
-          <CardContent className="pt-6">
-            <p className="text-sm opacity-90">Total Encaissements</p>
-            <p className="text-3xl font-bold mt-2">{totalEncaissements.toFixed(2)} €</p>
+          <CardContent className="pt-4 sm:pt-6">
+            <p className="text-xs sm:text-sm opacity-90">Total Ventes</p>
+            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalEncaissements.toFixed(2)} €</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg">
-          <CardContent className="pt-6">
-            <p className="text-sm opacity-90">Total Décaissements</p>
-            <p className="text-3xl font-bold mt-2">{totalDecaissements.toFixed(2)} €</p>
+          <CardContent className="pt-4 sm:pt-6">
+            <p className="text-xs sm:text-sm opacity-90">Total Achats</p>
+            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalDecaissements.toFixed(2)} €</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
-          <CardContent className="pt-6">
-            <p className="text-sm opacity-90">Cash Disponible</p>
-            <p className="text-3xl font-bold mt-2">{cashDisponible.toFixed(2)} €</p>
+          <CardContent className="pt-4 sm:pt-6">
+            <p className="text-xs sm:text-sm opacity-90">Cash Dispo</p>
+            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{cashDisponible.toFixed(2)} €</p>
           </CardContent>
         </Card>
       </div>
@@ -143,85 +181,82 @@ export default function CaisseModule() {
         <Card className="border-2 border-green-200">
           <CardContent className="pt-6">
             <div className="space-y-3">
-              {/* Type de transaction */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setNewTransaction({ ...newTransaction, type: 'encaissement' })}
-                  className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${
-                    newTransaction.type === 'encaissement'
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Encaissement
-                </button>
-                <button
-                  onClick={() => setNewTransaction({ ...newTransaction, type: 'decaissement' })}
-                  className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${
-                    newTransaction.type === 'decaissement'
-                      ? 'bg-red-500 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Décaissement
-                </button>
-              </div>
-
-              {/* Champs du formulaire */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mode de paiement</label>
+                  <label className="block text-sm font-medium mb-1">Mode de paiement</label>
                   <select
                     value={newTransaction.mode_paiement}
                     onChange={(e) => setNewTransaction({ ...newTransaction, mode_paiement: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg text-sm sm:text-base"
                   >
-                    <option value="cash">Cash</option>
-                    <option value="carte">Carte</option>
+                    <option value="cash">💵 Cash</option>
+                    <option value="carte">💳 Carte</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <label className="block text-sm font-medium mb-1">Date</label>
                   <input
                     type="date"
                     value={newTransaction.date}
                     onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg text-sm sm:text-base"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                  <label className="block text-sm font-medium mb-1">Nom</label>
                   <input
                     type="text"
                     value={newTransaction.nom}
                     onChange={(e) => setNewTransaction({ ...newTransaction, nom: e.target.value })}
-                    placeholder="Nom de la personne"
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder={activeView === 'ventes' ? "Client" : "Fournisseur/Magasin"}
+                    className="w-full p-2 border rounded-lg text-sm sm:text-base"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Montant (€)</label>
+                  <label className="block text-sm font-medium mb-1">Montant (€)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={newTransaction.montant}
                     onChange={(e) => setNewTransaction({ ...newTransaction, montant: e.target.value })}
                     placeholder="0.00"
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full p-2 border rounded-lg text-sm sm:text-base"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descriptif</label>
+                <label className="block text-sm font-medium mb-1">Descriptif</label>
                 <textarea
                   value={newTransaction.descriptif}
                   onChange={(e) => setNewTransaction({ ...newTransaction, descriptif: e.target.value })}
-                  placeholder="Description de la transaction..."
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Description..."
+                  className="w-full p-2 border rounded-lg text-sm sm:text-base"
                   rows="2"
                 />
               </div>
+
+              {activeView === 'achats' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">📸 Photo du ticket</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoUpload}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                  {newTransaction.photo_ticket && (
+                    <div className="mt-2">
+                      <img 
+                        src={newTransaction.photo_ticket} 
+                        alt="Aperçu ticket" 
+                        className="h-32 w-auto border rounded"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button onClick={addTransaction}>Ajouter</Button>
@@ -234,97 +269,132 @@ export default function CaisseModule() {
         </Card>
       )}
 
-      {/* Filtres */}
+      {/* Onglets Ventes / Achats */}
+      <div className="flex gap-2 border-b-2 border-gray-200">
+        <button
+          onClick={() => setActiveView('ventes')}
+          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base ${
+            activeView === 'ventes'
+              ? 'border-green-500 text-green-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Ventes
+          <span className="ml-2 px-2 py-1 bg-green-100 text-green-600 rounded-full text-xs font-bold">
+            {transactionsVentes.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveView('achats')}
+          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base ${
+            activeView === 'achats'
+              ? 'border-red-500 text-red-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Achats
+          <span className="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold">
+            {transactionsAchats.length}
+          </span>
+        </button>
+      </div>
+
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-3 mb-4">
-            <div className="flex-1 min-w-[200px]">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="🔍 Rechercher par nom..."
-                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="min-w-[200px]">
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            {(searchTerm || dateFilter) && (
+          {/* Filtres */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="🔍 Rechercher..."
+              className="flex-1 p-2 border rounded-lg text-sm"
+            />
+            <select
+              value={modeFilter}
+              onChange={(e) => setModeFilter(e.target.value)}
+              className="p-2 border rounded-lg text-sm"
+            >
+              <option value="">Tous les modes</option>
+              <option value="cash">💵 Cash</option>
+              <option value="carte">💳 Carte</option>
+            </select>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="p-2 border rounded-lg text-sm"
+            />
+            {(searchTerm || dateFilter || modeFilter) && (
               <Button
                 onClick={() => {
                   setSearchTerm('')
                   setDateFilter('')
+                  setModeFilter('')
                 }}
                 variant="ghost"
+                className="text-sm"
               >
                 Réinitialiser
               </Button>
             )}
           </div>
 
-          {/* Tableau des transactions */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          {/* Tableau responsive */}
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-xs sm:text-sm">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="p-2 text-left">Date</th>
-                  <th className="p-2 text-left">Type</th>
-                  <th className="p-2 text-left">Mode</th>
-                  <th className="p-2 text-left">Nom</th>
-                  <th className="p-2 text-left">Descriptif</th>
-                  <th className="p-2 text-right">Montant</th>
-                  <th className="p-2 text-center">Action</th>
+                  <th className="p-1 sm:p-2 text-left">Date</th>
+                  <th className="p-1 sm:p-2 text-left">Mode</th>
+                  <th className="p-1 sm:p-2 text-left">Nom</th>
+                  <th className="p-1 sm:p-2 text-left hidden sm:table-cell">Descriptif</th>
+                  <th className="p-1 sm:p-2 text-right">Montant</th>
+                  <th className="p-1 sm:p-2 text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-12 text-gray-400">
-                      💳 Aucune transaction trouvée
+                    <td colSpan="6" className="text-center py-8 text-gray-400">
+                      💳 Aucune transaction
                     </td>
                   </tr>
                 ) : (
                   filteredTransactions.map(transaction => (
                     <tr key={transaction.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2">
-                        {new Date(transaction.date).toLocaleDateString('fr-FR')}
+                      <td className="p-1 sm:p-2 text-xs">
+                        {new Date(transaction.date).toLocaleDateString('fr-FR', { 
+                          day: '2-digit', 
+                          month: '2-digit' 
+                        })}
                       </td>
-                      <td className="p-2">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            transaction.type === 'encaissement'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {transaction.type === 'encaissement' ? 'Encaissement' : 'Décaissement'}
+                      <td className="p-1 sm:p-2">
+                        <span className="text-xs">
+                          {transaction.mode_paiement === 'cash' ? '💵' : '💳'}
                         </span>
                       </td>
-                      <td className="p-2">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                          {transaction.mode_paiement === 'cash' ? '💵 Cash' : '💳 Carte'}
-                        </span>
+                      <td className="p-1 sm:p-2 font-medium text-xs sm:text-sm">{transaction.nom}</td>
+                      <td className="p-1 sm:p-2 text-gray-600 text-xs hidden sm:table-cell">
+                        {transaction.descriptif || '-'}
+                        {transaction.photo_ticket && (
+                          <button
+                            onClick={() => window.open(transaction.photo_ticket, '_blank')}
+                            className="ml-2 text-blue-500 hover:text-blue-700"
+                          >
+                            📷
+                          </button>
+                        )}
                       </td>
-                      <td className="p-2 font-medium">{transaction.nom}</td>
-                      <td className="p-2 text-gray-600">{transaction.descriptif || '-'}</td>
-                      <td
-                        className={`p-2 text-right font-bold ${
-                          transaction.type === 'encaissement' ? 'text-green-600' : 'text-red-600'
-                        }`}
-                      >
-                        {transaction.type === 'encaissement' ? '+' : '-'}
-                        {parseFloat(transaction.montant).toFixed(2)} €
+                      <td className={`p-1 sm:p-2 text-right font-bold text-xs sm:text-sm ${
+                        activeView === 'ventes' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {activeView === 'ventes' ? '+' : '-'}{parseFloat(transaction.montant).toFixed(2)} €
                       </td>
-                      <td className="p-2 text-center">
+                      <td className="p-1 sm:p-2 text-center">
                         <button
                           onClick={() => deleteTransaction(transaction.id)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
+                          className="text-red-500 hover:text-red-700 text-xs sm:text-base"
                           title="Supprimer"
                         >
                           🗑️
