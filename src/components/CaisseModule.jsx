@@ -107,78 +107,108 @@ export default function CaisseModule() {
   }
 
   const exportToCSV = () => {
-    const csvData = filteredTransactions.map(t => ({
-      Date: new Date(t.date).toLocaleDateString('fr-FR'),
-      Catégorie: t.categorie === 'vente' ? 'Vente' : t.categorie === 'achat' ? 'Achat' : 'Dépôt Banque',
-      Mode: t.mode_paiement === 'cash' ? 'Cash' : 'Carte',
-      Nom: t.nom,
-      Descriptif: t.descriptif || '',
-      Montant: parseFloat(t.montant).toFixed(2)
-    }))
+    if (filteredTransactions.length === 0) {
+      alert('Aucune transaction à exporter')
+      return
+    }
 
-    // Créer le CSV
-    const headers = Object.keys(csvData[0]).join(',')
-    const rows = csvData.map(row => Object.values(row).join(',')).join('\n')
-    const csv = headers + '\n' + rows
+    try {
+      const csvData = filteredTransactions.map(t => ({
+        Date: new Date(t.date).toLocaleDateString('fr-FR'),
+        Catégorie: t.categorie === 'vente' ? 'Vente' : t.categorie === 'achat' ? 'Achat' : 'Dépôt Banque',
+        Mode: t.mode_paiement === 'cash' ? 'Cash' : 'Carte',
+        Nom: `"${t.nom}"`, // Entourer de guillemets pour éviter les problèmes de virgules
+        Descriptif: `"${(t.descriptif || '').replace(/"/g, '""')}"`, // Échapper les guillemets
+        Montant: parseFloat(t.montant).toFixed(2)
+      }))
 
-    // Télécharger
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `caisse_${activeView}_${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
+      // Créer le CSV
+      const headers = 'Date,Catégorie,Mode,Nom,Descriptif,Montant'
+      const rows = csvData.map(row => 
+        `${row.Date},${row.Catégorie},${row.Mode},${row.Nom},${row.Descriptif},${row.Montant}`
+      ).join('\n')
+      const csv = headers + '\n' + rows
+
+      // Télécharger
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `caisse_${activeView}_${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Erreur export CSV:', error)
+      alert('Erreur lors de l\'export CSV')
+    }
   }
 
   const exportToExcel = () => {
-    // Créer un tableau HTML
-    const tableData = filteredTransactions.map(t => `
-      <tr>
-        <td>${new Date(t.date).toLocaleDateString('fr-FR')}</td>
-        <td>${t.categorie === 'vente' ? 'Vente' : t.categorie === 'achat' ? 'Achat' : 'Dépôt Banque'}</td>
-        <td>${t.mode_paiement === 'cash' ? 'Cash' : 'Carte'}</td>
-        <td>${t.nom}</td>
-        <td>${t.descriptif || ''}</td>
-        <td>${parseFloat(t.montant).toFixed(2)} €</td>
-      </tr>
-    `).join('')
+    if (filteredTransactions.length === 0) {
+      alert('Aucune transaction à exporter')
+      return
+    }
 
-    const html = `
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #4CAF50; color: white; }
-          </style>
-        </head>
-        <body>
-          <h2>Caisse - ${activeView === 'ventes' ? 'Ventes' : activeView === 'achats' ? 'Achats' : 'Dépôts Banque'}</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Catégorie</th>
-                <th>Mode</th>
-                <th>Nom</th>
-                <th>Descriptif</th>
-                <th>Montant</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableData}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `
+    try {
+      // Créer un tableau HTML
+      const tableData = filteredTransactions.map(t => `
+        <tr>
+          <td>${new Date(t.date).toLocaleDateString('fr-FR')}</td>
+          <td>${t.categorie === 'vente' ? 'Vente' : t.categorie === 'achat' ? 'Achat' : 'Dépôt Banque'}</td>
+          <td>${t.mode_paiement === 'cash' ? 'Cash' : 'Carte'}</td>
+          <td>${t.nom}</td>
+          <td>${t.descriptif || ''}</td>
+          <td>${parseFloat(t.montant).toFixed(2)} €</td>
+        </tr>
+      `).join('')
 
-    // Télécharger comme .xls (Excel peut l'ouvrir)
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `caisse_${activeView}_${new Date().toISOString().split('T')[0]}.xls`
-    link.click()
+      const html = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+          <head>
+            <meta charset="utf-8">
+            <style>
+              table { border-collapse: collapse; width: 100%; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #4CAF50; color: white; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <h2>Caisse - ${activeView === 'ventes' ? 'Ventes' : activeView === 'achats' ? 'Achats' : 'Dépôts Banque'}</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Catégorie</th>
+                  <th>Mode</th>
+                  <th>Nom</th>
+                  <th>Descriptif</th>
+                  <th>Montant</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableData}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `
+
+      // Télécharger comme .xls (Excel peut l'ouvrir)
+      const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `caisse_${activeView}_${new Date().toISOString().split('T')[0]}.xls`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Erreur export Excel:', error)
+      alert('Erreur lors de l\'export Excel')
+    }
   }
 
   if (loading) {
@@ -240,7 +270,7 @@ export default function CaisseModule() {
             setActiveView('ventes')
             setShowAddTransaction(true)
           }}
-          className="bg-green-500 hover:bg-green-600 text-white text-sm"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm"
         >
           + Vente
         </Button>
@@ -259,7 +289,7 @@ export default function CaisseModule() {
             setActiveView('achats')
             setShowAddTransaction(true)
           }}
-          className="bg-red-500 hover:bg-red-600 text-white text-sm"
+          className="bg-rose-500 hover:bg-rose-600 text-white text-sm"
         >
           + Achat
         </Button>
@@ -278,7 +308,7 @@ export default function CaisseModule() {
             setActiveView('depots')
             setShowAddTransaction(true)
           }}
-          className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
+          className="bg-sky-500 hover:bg-sky-600 text-white text-sm"
         >
           🏦 Dépôt Banque
         </Button>
@@ -286,25 +316,25 @@ export default function CaisseModule() {
 
       {/* Cartes de résumé */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg">
+        <Card className="bg-gradient-to-br from-emerald-400 to-emerald-500 text-white shadow-lg">
           <CardContent className="pt-4 sm:pt-6">
             <p className="text-xs sm:text-sm opacity-90">Total Ventes</p>
             <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalEncaissements.toFixed(2)} €</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg">
+        <Card className="bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-lg">
           <CardContent className="pt-4 sm:pt-6">
             <p className="text-xs sm:text-sm opacity-90">Total Achats</p>
             <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalDecaissements.toFixed(2)} €</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg">
+        <Card className="bg-gradient-to-br from-violet-400 to-violet-500 text-white shadow-lg">
           <CardContent className="pt-4 sm:pt-6">
             <p className="text-xs sm:text-sm opacity-90">Dépôts Banque</p>
             <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalDepots.toFixed(2)} €</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
+        <Card className="bg-gradient-to-br from-sky-400 to-sky-500 text-white shadow-lg">
           <CardContent className="pt-4 sm:pt-6">
             <p className="text-xs sm:text-sm opacity-90">Cash Dispo</p>
             <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{cashDisponible.toFixed(2)} €</p>
@@ -411,12 +441,12 @@ export default function CaisseModule() {
           onClick={() => setActiveView('ventes')}
           className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
             activeView === 'ventes'
-              ? 'border-green-500 text-green-600'
+              ? 'border-emerald-500 text-emerald-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           Ventes
-          <span className="ml-2 px-2 py-1 bg-green-100 text-green-600 rounded-full text-xs font-bold">
+          <span className="ml-2 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
             {transactionsVentes.length}
           </span>
         </button>
@@ -424,12 +454,12 @@ export default function CaisseModule() {
           onClick={() => setActiveView('achats')}
           className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
             activeView === 'achats'
-              ? 'border-red-500 text-red-600'
+              ? 'border-rose-500 text-rose-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           Achats
-          <span className="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold">
+          <span className="ml-2 px-2 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold">
             {transactionsAchats.length}
           </span>
         </button>
@@ -437,12 +467,12 @@ export default function CaisseModule() {
           onClick={() => setActiveView('depots')}
           className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
             activeView === 'depots'
-              ? 'border-purple-500 text-purple-600'
+              ? 'border-violet-500 text-violet-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           🏦 Dépôts Banque
-          <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">
+          <span className="ml-2 px-2 py-1 bg-violet-100 text-violet-700 rounded-full text-xs font-bold">
             {transactionsDepots.length}
           </span>
         </button>
@@ -536,7 +566,7 @@ export default function CaisseModule() {
                         )}
                       </td>
                       <td className={`p-1 sm:p-2 text-right font-bold text-xs sm:text-sm ${
-                        activeView === 'ventes' ? 'text-green-600' : activeView === 'achats' ? 'text-red-600' : 'text-purple-600'
+                        activeView === 'ventes' ? 'text-emerald-600' : activeView === 'achats' ? 'text-rose-600' : 'text-violet-600'
                       }`}>
                         {activeView === 'ventes' ? '+' : '-'}{parseFloat(transaction.montant).toFixed(2)} €
                       </td>
