@@ -312,47 +312,7 @@ export default function FlightLogModule({ userId, userRole }) {
   // Interface pilote (complète avec boutons action)
   return (
     <div className="space-y-6">
-      {/* En-tête avec stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="text-sm text-blue-600 mb-1">Vols ce mois-ci</div>
-            <div className="text-3xl font-bold text-blue-900">
-              {flights.filter(f => !f.in_progress && new Date(f.departure_time).getMonth() === new Date().getMonth()).length}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-green-50 border-green-200">
-          <CardContent className="pt-6">
-            <div className="text-sm text-green-600 mb-1">Heures de vol</div>
-            <div className="text-3xl font-bold text-green-900">
-              {Math.round(flights.filter(f => !f.in_progress).reduce((sum, f) => {
-                if (f.arrival_time) {
-                  const diff = new Date(f.arrival_time) - new Date(f.departure_time)
-                  return sum + (diff / 3600000)
-                }
-                return sum
-              }, 0))}h
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className={currentFlight ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}>
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-600 mb-1">Statut</div>
-            <div className="text-xl font-bold">
-              {currentFlight ? (
-                <span className="text-orange-600">🔴 En vol</span>
-              ) : (
-                <span className="text-gray-600">⚪ Au sol</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Vol en cours */}
+      {/* 1️⃣ VOL EN COURS (si actif) */}
       {currentFlight && (
         <Card className="border-orange-500 border-2 bg-orange-50">
           <CardHeader>
@@ -381,7 +341,7 @@ export default function FlightLogModule({ userId, userRole }) {
         </Card>
       )}
 
-      {/* Boutons principaux */}
+      {/* 2️⃣ BOUTONS PRINCIPAUX - EN PREMIER POUR MOBILE */}
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
@@ -463,7 +423,7 @@ export default function FlightLogModule({ userId, userRole }) {
         </CardContent>
       </Card>
 
-      {/* Historique des vols */}
+      {/* 3️⃣ HISTORIQUE DES VOLS - EN DEUXIÈME POUR MOBILE */}
       <Card>
         <CardHeader>
           <CardTitle>📋 Historique des vols (cliquez pour modifier)</CardTitle>
@@ -529,6 +489,46 @@ export default function FlightLogModule({ userId, userRole }) {
           )}
         </CardContent>
       </Card>
+
+      {/* 4️⃣ STATISTIQUES - EN DERNIER POUR MOBILE */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="text-sm text-blue-600 mb-1">Vols ce mois-ci</div>
+            <div className="text-3xl font-bold text-blue-900">
+              {flights.filter(f => !f.in_progress && new Date(f.departure_time).getMonth() === new Date().getMonth()).length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="pt-6">
+            <div className="text-sm text-green-600 mb-1">Heures de vol</div>
+            <div className="text-3xl font-bold text-green-900">
+              {Math.round(flights.filter(f => !f.in_progress).reduce((sum, f) => {
+                if (f.arrival_time) {
+                  const diff = new Date(f.arrival_time) - new Date(f.departure_time)
+                  return sum + (diff / 3600000)
+                }
+                return sum
+              }, 0))}h
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className={currentFlight ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}>
+          <CardContent className="pt-6">
+            <div className="text-sm text-gray-600 mb-1">Statut</div>
+            <div className="text-xl font-bold">
+              {currentFlight ? (
+                <span className="text-orange-600">🔴 En vol</span>
+              ) : (
+                <span className="text-gray-600">⚪ Au sol</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Gestion Drop Zones (modal simple) */}
       {dzManagementOpen && (
