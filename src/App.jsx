@@ -15,7 +15,8 @@ function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [username, setUsername] = useState('')
-  const [userRole, setUserRole] = useState('agent_sol') // 'agent_sol' ou 'pilote'
+  const [userRole, setUserRole] = useState('agent_sol')
+  const [userPermissions, setUserPermissions] = useState({})
   const [activeModule, setActiveModule] = useState('notes')
   const [showUserManagement, setShowUserManagement] = useState(false)
 
@@ -46,13 +47,14 @@ function App() {
   const loadUserProfile = async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('username, role')
+      .select('username, role, permissions')
       .eq('id', userId)
       .single()
 
     if (data) {
       setUsername(data.username)
       setUserRole(data.role || 'agent_sol')
+      setUserPermissions(data.permissions || {})
       
       // Si pilote, le mettre par défaut sur FlightLog
       if (data.role === 'pilote') {
@@ -70,15 +72,16 @@ function App() {
     setSession(null)
     setUsername('')
     setUserRole('agent_sol')
+    setUserPermissions({})
   }
 
   // Fonction pour vérifier si un module est accessible
   const canAccessModule = (module) => {
     if (userRole === 'agent_sol') return true // Agents ont accès à tout
     
-    // Pilotes ont accès uniquement à FlightLog et Jet A1
+    // Pilotes : vérifier dans leurs permissions
     if (userRole === 'pilote') {
-      return ['flightlog', 'jeta1'].includes(module)
+      return userPermissions[module] === true
     }
     
     return false
@@ -138,31 +141,73 @@ function App() {
 
               {/* Navigation par onglets */}
               <div className="flex gap-2 border-t pt-4 overflow-x-auto pb-2">
-                {/* PILOTES : FlightLog en PREMIER */}
+                {/* PILOTES : Afficher uniquement les modules autorisés */}
                 {userRole === 'pilote' && (
                   <>
-                    <button
-                      onClick={() => setActiveModule('flightlog')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                        activeModule === 'flightlog'
-                          ? 'bg-blue-500 text-white shadow-md'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      ✈️ <span className="hidden sm:inline">FlightLog</span>
-                    </button>
+                    {canAccessModule('flightlog') && (
+                      <button
+                        onClick={() => setActiveModule('flightlog')}
+                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                          activeModule === 'flightlog'
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        ✈️ <span className="hidden sm:inline">FlightLog</span>
+                      </button>
+                    )}
                     
-                    <button
-                      onClick={() => setActiveModule('jeta1')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                        activeModule === 'jeta1'
-                          ? 'bg-orange-500 text-white shadow-md'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      ⛽ <span className="hidden sm:inline">Jet A1</span>
-                      <span className="ml-1 text-xs">🔒</span>
-                    </button>
+                    {canAccessModule('jeta1') && (
+                      <button
+                        onClick={() => setActiveModule('jeta1')}
+                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                          activeModule === 'jeta1'
+                            ? 'bg-orange-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        ⛽ <span className="hidden sm:inline">Jet A1</span>
+                      </button>
+                    )}
+
+                    {canAccessModule('notes') && (
+                      <button
+                        onClick={() => setActiveModule('notes')}
+                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                          activeModule === 'notes'
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        📋 <span className="hidden sm:inline">Notes</span>
+                      </button>
+                    )}
+
+                    {canAccessModule('liste') && (
+                      <button
+                        onClick={() => setActiveModule('liste')}
+                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                          activeModule === 'liste'
+                            ? 'bg-purple-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        🚁 <span className="hidden sm:inline">Liste</span>
+                      </button>
+                    )}
+
+                    {canAccessModule('caisse') && (
+                      <button
+                        onClick={() => setActiveModule('caisse')}
+                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                          activeModule === 'caisse'
+                            ? 'bg-green-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        💳 <span className="hidden sm:inline">Caisse</span>
+                      </button>
+                    )}
                   </>
                 )}
 

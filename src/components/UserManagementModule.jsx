@@ -168,9 +168,15 @@ export default function UserManagementModule({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Overlay avec flou amélioré */}
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+      {/* Overlay avec fond blanc opaque + fermeture au clic extérieur */}
+      <div 
+        className="fixed inset-0 bg-white/95 backdrop-blur-md flex items-center justify-center z-50 p-4"
+        onClick={onClose}
+      >
+        <Card 
+          className="w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
           <CardHeader className="border-b">
             <div className="flex justify-between items-center">
               <CardTitle className="text-2xl font-bold">👥 Gestion des Utilisateurs</CardTitle>
@@ -422,8 +428,14 @@ export default function UserManagementModule({ isOpen, onClose }) {
 
       {/* Modal Permissions */}
       {editingPermissions && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <Card className="w-full max-w-md">
+        <div 
+          className="fixed inset-0 bg-white/95 backdrop-blur-md flex items-center justify-center z-[60] p-4"
+          onClick={() => setEditingPermissions(null)}
+        >
+          <Card 
+            className="w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <CardHeader className="border-b">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-xl">⚙️ Permissions</CardTitle>
