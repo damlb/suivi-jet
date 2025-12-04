@@ -5,6 +5,7 @@ import NotesModule from './components/NotesModule'
 import JetA1Module from './components/JetA1Module'
 import CaisseModule from './components/CaisseModule'
 import ListeAttenteModule from './components/ListeAttenteModule'
+import FlightLogModule from './components/FlightLogModule'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 
@@ -12,7 +13,8 @@ function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [username, setUsername] = useState('')
-  const [activeModule, setActiveModule] = useState('notes') // 'notes', 'jeta1', 'caisse'
+  const [userRole, setUserRole] = useState('agent_sol') // 'agent_sol' ou 'pilote'
+  const [activeModule, setActiveModule] = useState('notes')
 
   useEffect(() => {
     // Récupérer la session au chargement
@@ -41,15 +43,22 @@ function App() {
   const loadUserProfile = async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('username')
+      .select('username, role')
       .eq('id', userId)
       .single()
 
     if (data) {
       setUsername(data.username)
-      console.log('✅ Username chargé:', data.username)
+      setUserRole(data.role || 'agent_sol')
+      
+      // Si pilote, le mettre par défaut sur FlightLog
+      if (data.role === 'pilote') {
+        setActiveModule('flightlog')
+      }
+      
+      console.log('✅ Profile chargé:', data)
     } else {
-      console.error('❌ Erreur chargement username:', error)
+      console.error('❌ Erreur chargement profile:', error)
     }
   }
 
@@ -57,6 +66,19 @@ function App() {
     await supabase.auth.signOut()
     setSession(null)
     setUsername('')
+    setUserRole('agent_sol')
+  }
+
+  // Fonction pour vérifier si un module est accessible
+  const canAccessModule = (module) => {
+    if (userRole === 'agent_sol') return true // Agents ont accès à tout
+    
+    // Pilotes ont accès uniquement à FlightLog et Jet A1
+    if (userRole === 'pilote') {
+      return ['flightlog', 'jeta1'].includes(module)
+    }
+    
+    return false
   }
 
   if (loading) {
@@ -85,6 +107,11 @@ function App() {
                   </CardTitle>
                   <p className="text-gray-600 mt-1">
                     Bonjour {username || 'Utilisateur'} 👋
+                    {userRole === 'pilote' && (
+                      <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                        Pilote
+                      </span>
+                    )}
                   </p>
                 </div>
                 <Button onClick={handleSignOut} variant="ghost">
@@ -94,46 +121,94 @@ function App() {
 
               {/* Navigation par onglets */}
               <div className="flex gap-2 border-t pt-4 overflow-x-auto pb-2">
-                <button
-                  onClick={() => setActiveModule('notes')}
-                  className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                    activeModule === 'notes'
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  📋 <span className="hidden sm:inline">Notes</span>
-                </button>
-                <button
-                  onClick={() => setActiveModule('liste')}
-                  className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                    activeModule === 'liste'
-                      ? 'bg-purple-500 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  🚁 <span className="hidden sm:inline">Liste</span>
-                </button>
-                <button
-                  onClick={() => setActiveModule('jeta1')}
-                  className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                    activeModule === 'jeta1'
-                      ? 'bg-orange-500 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  ⛽ <span className="hidden sm:inline">Jet A1</span>
-                </button>
-                <button
-                  onClick={() => setActiveModule('caisse')}
-                  className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                    activeModule === 'caisse'
-                      ? 'bg-green-500 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  💳 <span className="hidden sm:inline">Caisse</span>
-                </button>
+                {/* PILOTES : FlightLog en PREMIER */}
+                {userRole === 'pilote' && (
+                  <>
+                    <button
+                      onClick={() => setActiveModule('flightlog')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'flightlog'
+                          ? 'bg-blue-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      ✈️ <span className="hidden sm:inline">FlightLog</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setActiveModule('jeta1')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'jeta1'
+                          ? 'bg-orange-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      ⛽ <span className="hidden sm:inline">Jet A1</span>
+                      <span className="ml-1 text-xs">🔒</span>
+                    </button>
+                  </>
+                )}
+
+                {/* AGENTS AU SOL : Tous les onglets dans l'ordre */}
+                {userRole === 'agent_sol' && (
+                  <>
+                    <button
+                      onClick={() => setActiveModule('notes')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'notes'
+                          ? 'bg-blue-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      📋 <span className="hidden sm:inline">Notes</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveModule('liste')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'liste'
+                          ? 'bg-purple-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      🚁 <span className="hidden sm:inline">Liste</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveModule('jeta1')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'jeta1'
+                          ? 'bg-orange-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      ⛽ <span className="hidden sm:inline">Jet A1</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveModule('caisse')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'caisse'
+                          ? 'bg-green-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      💳 <span className="hidden sm:inline">Caisse</span>
+                    </button>
+
+                    {/* FlightLog en DERNIER pour agents */}
+                    <button
+                      onClick={() => setActiveModule('flightlog')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'flightlog'
+                          ? 'bg-blue-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      ✈️ <span className="hidden sm:inline">FlightLog</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -142,9 +217,20 @@ function App() {
         {/* Contenu du module actif */}
         <Card>
           <CardContent className="pt-6">
+            {activeModule === 'flightlog' && (
+              <FlightLogModule 
+                userId={session.user.id} 
+                userRole={userRole}
+              />
+            )}
             {activeModule === 'notes' && <NotesModule currentUser={username || 'Utilisateur'} />}
             {activeModule === 'liste' && <ListeAttenteModule />}
-            {activeModule === 'jeta1' && <JetA1Module />}
+            {activeModule === 'jeta1' && (
+              <JetA1Module 
+                userRole={userRole}
+                userId={session.user.id}
+              />
+            )}
             {activeModule === 'caisse' && <CaisseModule />}
           </CardContent>
         </Card>
