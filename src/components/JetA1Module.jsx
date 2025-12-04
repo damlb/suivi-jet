@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 
-export default function JetA1Module() {
+export default function JetA1Module({ userRole, userId }) {
   const [livraisons, setLivraisons] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewArchived, setViewArchived] = useState(false)
@@ -96,7 +96,10 @@ export default function JetA1Module() {
       return
     }
 
-    if (newPrise.type === 'externe' && !newPrise.prixLitre) {
+    // Pour les pilotes : toujours type "interne"
+    const type = userRole === 'pilote' ? 'interne' : newPrise.type
+
+    if (type === 'externe' && !newPrise.prixLitre) {
       alert('Le prix au litre est obligatoire pour une vente externe')
       return
     }
@@ -110,7 +113,7 @@ export default function JetA1Module() {
       .insert([
         {
           livraison_id: livraisonActive.id,
-          type: newPrise.type,
+          type: type,
           immatriculation: newPrise.immatriculation,
           nom: newPrise.nom,
           date: newPrise.date,
@@ -133,9 +136,10 @@ export default function JetA1Module() {
         date: new Date().toISOString().split('T')[0],
         volume: '',
         prixLitre: '',
-        type: newPrise.type
+        type: 'interne'
       })
       setShowAddPrise(false)
+      alert('✅ Prise de carburant enregistrée')
     }
   }
 
@@ -212,6 +216,174 @@ export default function JetA1Module() {
   const prisesExternes = livraisonActive?.prises.filter(p => p.type === 'externe') || []
   const displayedPrises = jetA1View === 'interne' ? prisesInternes : prisesExternes
 
+  // ==========================================
+  // INTERFACE PILOTE (SIMPLIFIÉE)
+  // ==========================================
+  if (userRole === 'pilote') {
+    return (
+      <div className="space-y-6">
+        {/* En-tête */}
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-orange-600 mb-2">⛽ Stock Jet A1 Disponible</h3>
+          <p className="text-sm text-gray-500">Mode Pilote - Lecture seule + Ajout de prise</p>
+        </div>
+
+        {/* Stock disponible */}
+        {livraisonActive ? (
+          <>
+            <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-2 border-orange-300">
+              <CardContent className="pt-6">
+                <div className="text-center space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Stock disponible aujourd'hui</p>
+                    <p className="text-6xl font-bold text-orange-600">
+                      {getLivraisonData(livraisonActive).restant.toFixed(0)}
+                      <span className="text-3xl ml-2">L</span>
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t">
+                    <div>
+                      <p className="text-xs text-gray-600">Volume initial</p>
+                      <p className="text-xl font-bold text-gray-800">{livraisonActive.volume_initial} L</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600">Consommé</p>
+                      <p className="text-xl font-bold text-red-600">
+                        {getLivraisonData(livraisonActive).totalConsomme.toFixed(0)} L
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600">Restant</p>
+                      <p className="text-xl font-bold text-green-600">
+                        {getLivraisonData(livraisonActive).restant.toFixed(0)} L
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Barre de progression */}
+                  <div className="w-full bg-gray-300 rounded-full h-6 mt-4">
+                    <div
+                      className={`h-6 rounded-full transition-all flex items-center justify-center text-white text-xs font-bold ${
+                        (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 30
+                          ? 'bg-green-500'
+                          : (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 10
+                          ? 'bg-orange-500'
+                          : 'bg-red-500'
+                      }`}
+                      style={{
+                        width: `${Math.max((getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100, 5)}%`
+                      }}
+                    >
+                      {((getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100).toFixed(0)}%
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Formulaire ajout prise simplifiée */}
+            <Card>
+              <CardContent className="pt-6">
+                <h4 className="text-lg font-bold mb-4 text-center">➕ Enregistrer ma prise de carburant</h4>
+                
+                <div className="space-y-3 max-w-2xl mx-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Immatriculation</label>
+                      <input
+                        type="text"
+                        value={newPrise.immatriculation}
+                        onChange={(e) => setNewPrise({ ...newPrise, immatriculation: e.target.value })}
+                        placeholder="Ex: F-XXXX"
+                        className="w-full p-3 border rounded-lg text-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Nom du pilote</label>
+                      <input
+                        type="text"
+                        value={newPrise.nom}
+                        onChange={(e) => setNewPrise({ ...newPrise, nom: e.target.value })}
+                        placeholder="Votre nom"
+                        className="w-full p-3 border rounded-lg text-lg"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={newPrise.date}
+                        onChange={(e) => setNewPrise({ ...newPrise, date: e.target.value })}
+                        className="w-full p-3 border rounded-lg text-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Volume pris (litres)</label>
+                      <input
+                        type="number"
+                        value={newPrise.volume}
+                        onChange={(e) => setNewPrise({ ...newPrise, volume: e.target.value })}
+                        placeholder="Ex: 150"
+                        className="w-full p-3 border rounded-lg text-lg"
+                      />
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={addPrise} 
+                    className="w-full py-6 text-xl bg-orange-500 hover:bg-orange-600"
+                  >
+                    ✅ Enregistrer la prise
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Historique simplifié (mes 5 dernières prises) */}
+            <Card>
+              <CardContent className="pt-6">
+                <h4 className="text-lg font-bold mb-4">📋 Mes dernières prises</h4>
+                <div className="space-y-2">
+                  {prisesInternes.slice(0, 5).map(prise => (
+                    <div key={prise.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold">{prise.immatriculation} - {prise.nom}</p>
+                        <p className="text-sm text-gray-600">{new Date(prise.date).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-orange-600">{prise.volume} L</p>
+                      </div>
+                    </div>
+                  ))}
+                  {prisesInternes.length === 0 && (
+                    <p className="text-center text-gray-400 py-4">Aucune prise enregistrée</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-12 text-gray-400">
+                <p className="text-5xl mb-4">⛽</p>
+                <p className="text-lg">Aucune livraison active</p>
+                <p className="text-sm mt-2">Contactez un agent au sol</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    )
+  }
+
+  // ==========================================
+  // INTERFACE AGENT AU SOL (COMPLÈTE)
+  // ==========================================
   return (
     <div className="space-y-4">
       <div className="flex justify-end items-center">
