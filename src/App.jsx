@@ -6,8 +6,10 @@ import JetA1Module from './components/JetA1Module'
 import CaisseModule from './components/CaisseModule'
 import ListeAttenteModule from './components/ListeAttenteModule'
 import FlightLogModule from './components/FlightLogModule'
+import UserManagementModule from './components/UserManagementModule'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
+import { Users } from 'lucide-react'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -15,6 +17,7 @@ function App() {
   const [username, setUsername] = useState('')
   const [userRole, setUserRole] = useState('agent_sol') // 'agent_sol' ou 'pilote'
   const [activeModule, setActiveModule] = useState('notes')
+  const [showUserManagement, setShowUserManagement] = useState(false)
 
   useEffect(() => {
     // Récupérer la session au chargement
@@ -114,9 +117,23 @@ function App() {
                     )}
                   </p>
                 </div>
-                <Button onClick={handleSignOut} variant="ghost">
-                  Se déconnecter
-                </Button>
+                <div className="flex gap-2">
+                  {/* Bouton Gestion Utilisateurs - Visible uniquement pour agents au sol */}
+                  {userRole === 'agent_sol' && (
+                    <Button
+                      onClick={() => setShowUserManagement(true)}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <Users size={18} />
+                      <span className="hidden sm:inline">Utilisateurs</span>
+                    </Button>
+                  )}
+                  
+                  <Button onClick={handleSignOut} variant="ghost">
+                    Se déconnecter
+                  </Button>
+                </div>
               </div>
 
               {/* Navigation par onglets */}
@@ -235,6 +252,12 @@ function App() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal Gestion Utilisateurs */}
+      <UserManagementModule 
+        isOpen={showUserManagement}
+        onClose={() => setShowUserManagement(false)}
+      />
     </div>
   )
 }
