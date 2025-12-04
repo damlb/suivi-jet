@@ -6,19 +6,16 @@ import JetA1Module from './components/JetA1Module'
 import CaisseModule from './components/CaisseModule'
 import ListeAttenteModule from './components/ListeAttenteModule'
 import FlightLogModule from './components/FlightLogModule'
-import UserManagementModule from './components/UserManagementModule'
+import DropZonesModule from './components/DropZonesModule'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
-import { Users } from 'lucide-react'
 
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [username, setUsername] = useState('')
-  const [userRole, setUserRole] = useState('agent_sol')
-  const [userPermissions, setUserPermissions] = useState({})
+  const [userRole, setUserRole] = useState('agent_sol') // 'agent_sol' ou 'pilote'
   const [activeModule, setActiveModule] = useState('notes')
-  const [showUserManagement, setShowUserManagement] = useState(false)
 
   useEffect(() => {
     // Récupérer la session au chargement
@@ -47,14 +44,13 @@ function App() {
   const loadUserProfile = async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('username, role, permissions')
+      .select('username, role')
       .eq('id', userId)
       .single()
 
     if (data) {
       setUsername(data.username)
       setUserRole(data.role || 'agent_sol')
-      setUserPermissions(data.permissions || {})
       
       // Si pilote, le mettre par défaut sur FlightLog
       if (data.role === 'pilote') {
@@ -72,16 +68,15 @@ function App() {
     setSession(null)
     setUsername('')
     setUserRole('agent_sol')
-    setUserPermissions({})
   }
 
   // Fonction pour vérifier si un module est accessible
   const canAccessModule = (module) => {
     if (userRole === 'agent_sol') return true // Agents ont accès à tout
     
-    // Pilotes : vérifier dans leurs permissions
+    // Pilotes ont accès à FlightLog, Jet A1, DZ et PVE
     if (userRole === 'pilote') {
-      return userPermissions[module] === true
+      return ['flightlog', 'jeta1', 'dropzones'].includes(module)
     }
     
     return false
@@ -120,94 +115,49 @@ function App() {
                     )}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  {/* Bouton Gestion Utilisateurs - Visible uniquement pour agents au sol */}
-                  {userRole === 'agent_sol' && (
-                    <Button
-                      onClick={() => setShowUserManagement(true)}
-                      variant="outline"
-                      className="flex items-center gap-2"
-                    >
-                      <Users size={18} />
-                      <span className="hidden sm:inline">Utilisateurs</span>
-                    </Button>
-                  )}
-                  
-                  <Button onClick={handleSignOut} variant="ghost">
-                    Se déconnecter
-                  </Button>
-                </div>
+                <Button onClick={handleSignOut} variant="ghost">
+                  Se déconnecter
+                </Button>
               </div>
 
               {/* Navigation par onglets */}
               <div className="flex gap-2 border-t pt-4 overflow-x-auto pb-2">
-                {/* PILOTES : Afficher uniquement les modules autorisés */}
+                {/* PILOTES : FlightLog, Jet A1, DZ en PREMIER */}
                 {userRole === 'pilote' && (
                   <>
-                    {canAccessModule('flightlog') && (
-                      <button
-                        onClick={() => setActiveModule('flightlog')}
-                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                          activeModule === 'flightlog'
-                            ? 'bg-blue-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        ✈️ <span className="hidden sm:inline">FlightLog</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setActiveModule('flightlog')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'flightlog'
+                          ? 'bg-blue-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      ✈️ <span className="hidden sm:inline">FlightLog</span>
+                    </button>
                     
-                    {canAccessModule('jeta1') && (
-                      <button
-                        onClick={() => setActiveModule('jeta1')}
-                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                          activeModule === 'jeta1'
-                            ? 'bg-orange-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        ⛽ <span className="hidden sm:inline">Jet A1</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setActiveModule('jeta1')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'jeta1'
+                          ? 'bg-orange-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      ⛽ <span className="hidden sm:inline">Jet A1</span>
+                      <span className="ml-1 text-xs">🔒</span>
+                    </button>
 
-                    {canAccessModule('notes') && (
-                      <button
-                        onClick={() => setActiveModule('notes')}
-                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                          activeModule === 'notes'
-                            ? 'bg-blue-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        📋 <span className="hidden sm:inline">Notes</span>
-                      </button>
-                    )}
-
-                    {canAccessModule('liste') && (
-                      <button
-                        onClick={() => setActiveModule('liste')}
-                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                          activeModule === 'liste'
-                            ? 'bg-purple-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        🚁 <span className="hidden sm:inline">Liste</span>
-                      </button>
-                    )}
-
-                    {canAccessModule('caisse') && (
-                      <button
-                        onClick={() => setActiveModule('caisse')}
-                        className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                          activeModule === 'caisse'
-                            ? 'bg-green-500 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        💳 <span className="hidden sm:inline">Caisse</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setActiveModule('dropzones')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'dropzones'
+                          ? 'bg-purple-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      📍 <span className="hidden sm:inline">DZ</span>
+                    </button>
                   </>
                 )}
 
@@ -269,6 +219,18 @@ function App() {
                     >
                       ✈️ <span className="hidden sm:inline">FlightLog</span>
                     </button>
+
+                    {/* Drop Zones */}
+                    <button
+                      onClick={() => setActiveModule('dropzones')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'dropzones'
+                          ? 'bg-purple-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      📍 <span className="hidden sm:inline">DZ</span>
+                    </button>
                   </>
                 )}
               </div>
@@ -294,15 +256,15 @@ function App() {
               />
             )}
             {activeModule === 'caisse' && <CaisseModule />}
+            {activeModule === 'dropzones' && (
+              <DropZonesModule 
+                userId={session.user.id}
+                userRole={userRole}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Modal Gestion Utilisateurs */}
-      <UserManagementModule 
-        isOpen={showUserManagement}
-        onClose={() => setShowUserManagement(false)}
-      />
     </div>
   )
 }
