@@ -7,6 +7,7 @@ import CaisseModule from './components/CaisseModule'
 import ListeAttenteModule from './components/ListeAttenteModule'
 import FlightLogModule from './components/FlightLogModule'
 import DropZonesModule from './components/DropZonesModule'
+import ManifestModule from './components/ManifestModule'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 
@@ -76,7 +77,7 @@ function App() {
     
     // Pilotes ont accès à FlightLog, Jet A1, DZ et PVE
     if (userRole === 'pilote') {
-      return ['flightlog', 'jeta1', 'dropzones'].includes(module)
+      return ['flightlog', 'jeta1', 'dropzones', 'manifest'].includes(module)
     }
     
     return false
@@ -158,6 +159,17 @@ function App() {
                     >
                       📍 <span className="hidden sm:inline">DZ</span>
                     </button>
+
+                    <button
+                      onClick={() => setActiveModule('manifest')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'manifest'
+                          ? 'bg-green-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      📄 <span className="hidden sm:inline">PVE</span>
+                    </button>
                   </>
                 )}
 
@@ -231,6 +243,18 @@ function App() {
                     >
                       📍 <span className="hidden sm:inline">DZ</span>
                     </button>
+
+                    {/* Manifeste de Vol (PVE) */}
+                    <button
+                      onClick={() => setActiveModule('manifest')}
+                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                        activeModule === 'manifest'
+                          ? 'bg-green-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      📄 <span className="hidden sm:inline">PVE</span>
+                    </button>
                   </>
                 )}
               </div>
@@ -260,6 +284,13 @@ function App() {
               <DropZonesModule 
                 userId={session.user.id}
                 userRole={userRole}
+              />
+            )}
+            {activeModule === 'manifest' && (
+              <ManifestModule 
+                userId={session.user.id}
+                userRole={userRole}
+                username={username}
               />
             )}
           </CardContent>
