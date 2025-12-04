@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Plane, MapPin, Clock, Calendar } from 'lucide-react'
+import { Plane, MapPin, Clock, Calendar, Trash2 } from 'lucide-react'
 
 export default function FlightLogModule({ userId, userRole }) {
   const [dropZones, setDropZones] = useState([])
@@ -22,6 +22,17 @@ export default function FlightLogModule({ userId, userRole }) {
   const [editArrivalDZ, setEditArrivalDZ] = useState(null)
   const [editSearchDeparture, setEditSearchDeparture] = useState('')
   const [editSearchArrival, setEditSearchArrival] = useState('')
+
+  // État pour le CRUD Drop Zones
+  const [newDropZone, setNewDropZone] = useState({ 
+    name: '', 
+    latitude: '', 
+    longitude: '', 
+    notes: '',
+    region: 'corse' // Valeur par défaut
+  })
+  const [editingDropZone, setEditingDropZone] = useState(null)
+  const [filterCountry, setFilterCountry] = useState('all') // 'all', 'corse', 'france', 'italie', 'sardaigne'
 
   useEffect(() => {
     loadData()
@@ -228,6 +239,144 @@ export default function FlightLogModule({ userId, userRole }) {
     }
   }
 
+  const handleDeleteFlight = async (flight) => {
+    const departureLocation = flight.departure_dz?.name || flight.departure_location || 'Départ non précisé'
+    const arrivalLocation = flight.arrival_dz?.name || flight.arrival_location || 'Arrivée non précisée'
+    const flightDate = new Date(flight.departure_time).toLocaleDateString('fr-FR')
+    
+    const confirmMessage = `⚠️ Êtes-vous sûr de vouloir supprimer ce vol ?\n\n📍 ${departureLocation} → ${arrivalLocation}\n📅 ${flightDate}\n\nCette action est irréversible.`
+    
+    if (!confirm(confirmMessage)) return
+
+    const { error } = await supabase
+      .from('flight_logs')
+      .delete()
+      .eq('id', flight.id)
+
+    if (!error) {
+      loadFlights()
+      // Si c'était le vol en cours, le retirer aussi
+      if (currentFlight?.id === flight.id) {
+        setCurrentFlight(null)
+      }
+      alert('✅ Vol supprimé')
+    } else {
+      console.error('Erreur suppression vol:', error)
+      alert('❌ Erreur lors de la suppression')
+    }
+  }
+
+  // ========== CRUD DROP ZONES ==========
+  
+  const handleAddDropZone = async () => {
+    if (!newDropZone.name || !newDropZone.latitude || !newDropZone.longitude) {
+      alert('⚠️ Veuillez remplir tous les champs obligatoires (nom, latitude, longitude)')
+      return
+    }
+
+    // Validation format coordonnées
+    const lat = parseFloat(newDropZone.latitude)
+    const lng = parseFloat(newDropZone.longitude)
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      alert('⚠️ Format de coordonnées invalide. Utilisez des nombres décimaux (ex: 41.36815)')
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('drop_zones')
+      .insert([{
+        name: newDropZone.name,
+        latitude: lat,
+        longitude: lng,
+        notes: newDropZone.notes || null,
+        region: newDropZone.region,
+        type: 'custom',
+        created_by: userId,
+        is_active: true
+      }])
+      .select()
+
+    if (!error && data) {
+      setDropZones([...dropZones, data[0]])
+      setNewDropZone({ name: '', latitude: '', longitude: '', notes: '', region: 'corse' })
+      alert('✅ Drop Zone ajoutée avec succès !')
+    } else {
+      console.error('Erreur ajout DZ:', error)
+      alert('❌ Erreur lors de l\'ajout de la Drop Zone')
+    }
+  }
+
+  const handleEditDropZone = (dz) => {
+    setEditingDropZone({
+      id: dz.id,
+      name: dz.name,
+      latitude: dz.latitude.toString(),
+      longitude: dz.longitude.toString(),
+      notes: dz.notes || '',
+      region: dz.region || 'corse'
+    })
+  }
+
+  const handleUpdateDropZone = async () => {
+    if (!editingDropZone.name || !editingDropZone.latitude || !editingDropZone.longitude) {
+      alert('⚠️ Veuillez remplir tous les champs obligatoires')
+      return
+    }
+
+    const lat = parseFloat(editingDropZone.latitude)
+    const lng = parseFloat(editingDropZone.longitude)
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      alert('⚠️ Format de coordonnées invalide')
+      return
+    }
+
+    const { error } = await supabase
+      .from('drop_zones')
+      .update({
+        name: editingDropZone.name,
+        latitude: lat,
+        longitude: lng,
+        notes: editingDropZone.notes || null,
+        region: editingDropZone.region
+      })
+      .eq('id', editingDropZone.id)
+
+    if (!error) {
+      setDropZones(dropZones.map(dz => 
+        dz.id === editingDropZone.id 
+          ? { ...dz, name: editingDropZone.name, latitude: lat, longitude: lng, notes: editingDropZone.notes, region: editingDropZone.region }
+          : dz
+      ))
+      setEditingDropZone(null)
+      setNewDropZone({ name: '', latitude: '', longitude: '', notes: '', region: 'corse' })
+      alert('✅ Drop Zone mise à jour !')
+    } else {
+      console.error('Erreur update DZ:', error)
+      alert('❌ Erreur lors de la mise à jour')
+    }
+  }
+
+  const handleDeleteDropZone = async (id, name) => {
+    if (!confirm(`⚠️ Êtes-vous sûr de vouloir supprimer la Drop Zone "${name}" ?\n\nCette action est irréversible.`)) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('drop_zones')
+      .delete()
+      .eq('id', id)
+
+    if (!error) {
+      setDropZones(dropZones.filter(dz => dz.id !== id))
+      alert('✅ Drop Zone supprimée')
+    } else {
+      console.error('Erreur suppression DZ:', error)
+      alert('❌ Erreur lors de la suppression')
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-8">Chargement...</div>
   }
@@ -387,8 +536,14 @@ export default function FlightLogModule({ userId, userRole }) {
               </div>
               
               {selectedDZ && (
-                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                  ✅ Sélectionné : <strong>{selectedDZ.name}</strong>
+                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-green-700 font-semibold">✅ Sélectionné :</span>
+                    <strong>{selectedDZ.name}</strong>
+                  </div>
+                  <div className="text-sm text-gray-600 font-mono bg-white px-2 py-1 rounded border border-green-200 inline-block">
+                    📍 {selectedDZ.latitude}, {selectedDZ.longitude}
+                  </div>
                 </div>
               )}
             </div>
@@ -438,15 +593,17 @@ export default function FlightLogModule({ userId, userRole }) {
               {flights.map(flight => (
                 <div
                   key={flight.id}
-                  onClick={() => userRole === 'pilote' && !flight.in_progress && handleEditFlight(flight)}
                   className={`p-4 border rounded-lg ${
                     flight.in_progress 
                       ? 'bg-orange-50 border-orange-200' 
-                      : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer'
+                      : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md transition-all'
                   }`}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
+                  <div className="flex justify-between items-start gap-3">
+                    <div 
+                      className="flex-1 cursor-pointer"
+                      onClick={() => userRole === 'pilote' && !flight.in_progress && handleEditFlight(flight)}
+                    >
                       <div className="font-semibold text-lg mb-1">
                         {flight.departure_dz?.name || flight.departure_location || '📍 Départ à préciser'}
                         {flight.arrival_dz?.name ? (
@@ -471,15 +628,32 @@ export default function FlightLogModule({ userId, userRole }) {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      {flight.in_progress ? (
-                        <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-semibold">
-                          En cours
-                        </span>
-                      ) : (
-                        <div className="text-lg font-bold text-green-600">
-                          {formatDuration(flight.departure_time, flight.arrival_time)}
-                        </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        {flight.in_progress ? (
+                          <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-semibold">
+                            En cours
+                          </span>
+                        ) : (
+                          <div className="text-lg font-bold text-green-600">
+                            {formatDuration(flight.departure_time, flight.arrival_time)}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Bouton suppression (pilotes seulement et vol terminé) */}
+                      {userRole === 'pilote' && !flight.in_progress && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteFlight(flight)
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded transition-colors"
+                          title="Supprimer ce vol"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -530,31 +704,273 @@ export default function FlightLogModule({ userId, userRole }) {
         </Card>
       </div>
 
-      {/* Gestion Drop Zones (modal simple) */}
+      {/* Gestion Drop Zones (modal CRUD complet) */}
       {dzManagementOpen && (
-        <Card className="border-blue-500">
-          <CardHeader>
-            <CardTitle>📍 Mes Drop Zones</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {dropZones.map(dz => (
-                <div key={dz.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                  <div className="font-semibold">{dz.name}</div>
-                  {dz.oaci_code && (
-                    <div className="text-xs text-gray-500">{dz.oaci_code}</div>
-                  )}
-                  <div className="text-xs text-gray-400 mt-1">
-                    📍 {dz.latitude}, {dz.longitude}
+        <div 
+          className="fixed inset-0 bg-white/95 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setDzManagementOpen(false)
+            setNewDropZone({ name: '', latitude: '', longitude: '', notes: '' })
+            setEditingDropZone(null)
+          }}
+        >
+          <Card 
+            className="w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardHeader>
+              <CardTitle>📍 Gestion des Drop Zones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Formulaire d'ajout/édition */}
+                <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                  <h3 className="font-semibold text-lg mb-3">
+                    {editingDropZone ? '✏️ Modifier la Drop Zone' : '➕ Ajouter une Drop Zone'}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nom *
+                      </label>
+                      <input
+                        type="text"
+                        value={editingDropZone ? editingDropZone.name : newDropZone.name}
+                        onChange={(e) => {
+                          if (editingDropZone) {
+                            setEditingDropZone({ ...editingDropZone, name: e.target.value })
+                          } else {
+                            setNewDropZone({ ...newDropZone, name: e.target.value })
+                          }
+                        }}
+                        placeholder="Ex: Aéroport Ajaccio"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Latitude * (format: 41.36815)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingDropZone ? editingDropZone.latitude : newDropZone.latitude}
+                        onChange={(e) => {
+                          if (editingDropZone) {
+                            setEditingDropZone({ ...editingDropZone, latitude: e.target.value })
+                          } else {
+                            setNewDropZone({ ...newDropZone, latitude: e.target.value })
+                          }
+                        }}
+                        placeholder="Ex: 41.36815"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Longitude * (format: 9.260047)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingDropZone ? editingDropZone.longitude : newDropZone.longitude}
+                        onChange={(e) => {
+                          if (editingDropZone) {
+                            setEditingDropZone({ ...editingDropZone, longitude: e.target.value })
+                          } else {
+                            setNewDropZone({ ...newDropZone, longitude: e.target.value })
+                          }
+                        }}
+                        placeholder="Ex: 9.260047"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Région * (pour le tri)
+                      </label>
+                      <select
+                        value={editingDropZone ? editingDropZone.region : newDropZone.region}
+                        onChange={(e) => {
+                          if (editingDropZone) {
+                            setEditingDropZone({ ...editingDropZone, region: e.target.value })
+                          } else {
+                            setNewDropZone({ ...newDropZone, region: e.target.value })
+                          }
+                        }}
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="corse">🇫🇷 Corse</option>
+                        <option value="france">🇫🇷 France continentale</option>
+                        <option value="italie">🇮🇹 Italie</option>
+                        <option value="sardaigne">🇮🇹 Sardaigne</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Notes (optionnel)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingDropZone ? editingDropZone.notes || '' : newDropZone.notes}
+                        onChange={(e) => {
+                          if (editingDropZone) {
+                            setEditingDropZone({ ...editingDropZone, notes: e.target.value })
+                          } else {
+                            setNewDropZone({ ...newDropZone, notes: e.target.value })
+                          }
+                        }}
+                        placeholder="Ex: Base principale"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 mt-3">
+                    {editingDropZone ? (
+                      <>
+                        <Button
+                          onClick={handleUpdateDropZone}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          ✅ Enregistrer
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setEditingDropZone(null)
+                            setNewDropZone({ name: '', latitude: '', longitude: '', notes: '' })
+                          }}
+                          variant="outline"
+                        >
+                          Annuler
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={handleAddDropZone}
+                        className="bg-blue-500 hover:bg-blue-600"
+                      >
+                        ➕ Ajouter
+                      </Button>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-            <div className="mt-4 text-center text-sm text-gray-500">
-              💡 Fonctionnalité d'ajout de DZ à venir
-            </div>
-          </CardContent>
-        </Card>
+
+                {/* Liste des Drop Zones */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="font-semibold text-lg">
+                      📋 Drop Zones existantes ({dropZones.filter(dz => {
+                        if (filterCountry === 'all') return true
+                        if (filterCountry === 'corse') return dz.name.toLowerCase().includes('corse') || dz.name.toLowerCase().includes('ajaccio') || dz.name.toLowerCase().includes('bastia') || dz.name.toLowerCase().includes('calvi') || dz.name.toLowerCase().includes('figari') || dz.name.toLowerCase().includes('porto-vecchio') || dz.name.toLowerCase().includes('bonifacio')
+                        if (filterCountry === 'france') return (dz.name.toLowerCase().includes('france') || dz.name.toLowerCase().includes('marseille') || dz.name.toLowerCase().includes('nice') || dz.name.toLowerCase().includes('cannes') || dz.name.toLowerCase().includes('monaco') || dz.name.toLowerCase().includes('saint-tropez') || dz.name.toLowerCase().includes('toulon') || dz.name.toLowerCase().includes('avignon') || dz.name.toLowerCase().includes('montpellier') || dz.name.toLowerCase().includes('perpignan') || dz.name.toLowerCase().includes('courchevel') || dz.name.toLowerCase().includes('méribel')) && !dz.name.toLowerCase().includes('corse')
+                        if (filterCountry === 'italie') return dz.name.toLowerCase().includes('italie') || dz.name.toLowerCase().includes('rome') || dz.name.toLowerCase().includes('milan') || dz.name.toLowerCase().includes('gênes') || dz.name.toLowerCase().includes('venise') || dz.name.toLowerCase().includes('sardaigne') || dz.name.toLowerCase().includes('cagliari') || dz.name.toLowerCase().includes('olbia') || dz.name.toLowerCase().includes('alghero')
+                        return true
+                      }).length})
+                    </h3>
+                    
+                    {/* Filtre par pays */}
+                    <select
+                      value={filterCountry}
+                      onChange={(e) => setFilterCountry(e.target.value)}
+                      className="px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">🌍 Toutes les zones</option>
+                      <option value="corse">🇫🇷 Corse</option>
+                      <option value="france">🇫🇷 France continentale</option>
+                      <option value="italie">🇮🇹 Italie</option>
+                      <option value="sardaigne">🇮🇹 Sardaigne</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {dropZones.filter(dz => {
+                      if (filterCountry === 'all') return true
+                      return dz.region === filterCountry
+                    }).length === 0 ? (
+                      <div className="text-center py-8 text-gray-400">
+                        Aucune Drop Zone dans cette zone
+                      </div>
+                    ) : (
+                      dropZones.filter(dz => {
+                        if (filterCountry === 'all') return true
+                        return dz.region === filterCountry
+                      }).map(dz => (
+                        <div 
+                          key={dz.id} 
+                          className="p-3 border rounded-lg hover:bg-gray-50 flex justify-between items-start"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="font-semibold">{dz.name}</div>
+                              {dz.region && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  dz.region === 'corse' ? 'bg-blue-100 text-blue-700' :
+                                  dz.region === 'france' ? 'bg-green-100 text-green-700' :
+                                  dz.region === 'italie' ? 'bg-red-100 text-red-700' :
+                                  dz.region === 'sardaigne' ? 'bg-purple-100 text-purple-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {dz.region === 'corse' ? '🇫🇷 Corse' :
+                                   dz.region === 'france' ? '🇫🇷 France' :
+                                   dz.region === 'italie' ? '🇮🇹 Italie' :
+                                   dz.region === 'sardaigne' ? '🇮🇹 Sardaigne' : dz.region}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                              <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                                📍 {dz.latitude}, {dz.longitude}
+                              </span>
+                            </div>
+                            {dz.notes && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                💬 {dz.notes}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex gap-2 ml-4">
+                            <button
+                              onClick={() => handleEditDropZone(dz)}
+                              className="text-blue-500 hover:text-blue-700 px-2 py-1 text-sm"
+                              title="Modifier"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDropZone(dz.id, dz.name)}
+                              className="text-red-500 hover:text-red-700 px-2 py-1 text-sm"
+                              title="Supprimer"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Bouton fermer */}
+                <div className="flex justify-end pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      setDzManagementOpen(false)
+                      setNewDropZone({ name: '', latitude: '', longitude: '', notes: '' })
+                      setEditingDropZone(null)
+                    }}
+                    variant="outline"
+                  >
+                    Fermer
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Modal édition d'un vol - CORRIGÉ */}
