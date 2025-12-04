@@ -382,7 +382,41 @@ export default function JetA1Module({ userRole, userId }) {
     )
   }
 
-  // ========== INTERFACE AGENT AU SOL (INCHANGÉE) ==========
+  // ========== INTERFACE AGENT AU SOL (COMPLÈTE) ==========
+  
+  const deletePrise = async (priseId, livraisonId) => {
+    if (!confirm('Supprimer cette prise ?')) return
+    
+    const { error } = await supabase
+      .from('prises')
+      .delete()
+      .eq('id', priseId)
+
+    if (!error) {
+      setLivraisons(livraisons.map(liv =>
+        liv.id === livraisonId
+          ? { ...liv, prises: liv.prises.filter(p => p.id !== priseId) }
+          : liv
+      ))
+    }
+  }
+
+  const unarchiveLivraison = async (id) => {
+    if (livraisonActive) {
+      alert('Il y a déjà une livraison active. Veuillez d\'abord la clôturer.')
+      return
+    }
+    
+    const { error } = await supabase
+      .from('livraisons')
+      .update({ archivee: false, date_archivage: null })
+      .eq('id', id)
+
+    if (!error) {
+      loadLivraisons()
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end items-center">
@@ -446,7 +480,7 @@ export default function JetA1Module({ userRole, userId }) {
         </Card>
       )}
 
-      {/* Reste de l'interface agent au sol inchangée... */}
+      {/* Onglets Livraison Active / Clôturées */}
       <div className="flex gap-2 bg-white rounded-lg p-2 shadow-md">
         <button
           onClick={() => setViewArchived(false)}
@@ -476,88 +510,350 @@ export default function JetA1Module({ userRole, userId }) {
             <>
               <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-2 border-orange-300">
                 <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-bold mb-3">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-bold mb-3">
                         📦 Livraison en cours - {new Date(livraisonActive.date).toLocaleDateString('fr-FR')}
-                      </h3>
+                      </h4>
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div>
-                          <p className="text-xs text-gray-600 mb-1">Stock initial</p>
-                          <p className="text-xl font-bold text-gray-600">{livraisonActive.stock_initial || 0} L</p>
+                          <p className="text-xs text-gray-600">Stock initial</p>
+                          <p className="text-xl font-bold text-gray-600">{livraisonActive.stock_initial} L</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 mb-1">Volume livré</p>
-                          <p className="text-xl font-bold text-orange-600">{livraisonActive.volume_livre || livraisonActive.volume_initial} L</p>
+                          <p className="text-xs text-gray-600">Volume livré</p>
+                          <p className="text-xl font-bold text-orange-600">{livraisonActive.volume_livre} L</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 mb-1">Total disponible</p>
+                          <p className="text-xs text-gray-600">Total disponible</p>
                           <p className="text-xl font-bold text-gray-800">{livraisonActive.volume_initial} L</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 mb-1">Consommé</p>
+                          <p className="text-xs text-gray-600">Consommé</p>
                           <p className="text-xl font-bold text-red-600">
                             {getLivraisonData(livraisonActive).totalConsomme.toFixed(1)} L
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 mb-1">Restant</p>
+                          <p className="text-xs text-gray-600">Restant</p>
                           <p className="text-xl font-bold text-green-600">
                             {getLivraisonData(livraisonActive).restant.toFixed(1)} L
                           </p>
                         </div>
                       </div>
+                      <div className="mt-2 text-sm">
+                        <span className="font-semibold">Ventes externes: </span>
+                        <span className="text-green-700 font-bold">
+                          {getLivraisonData(livraisonActive).totalVentesExternes.toFixed(2)} €
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <div className="w-full bg-gray-300 rounded-full h-4">
+                          <div
+                            className={`h-4 rounded-full transition-all ${
+                              (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 30
+                                ? 'bg-green-500'
+                                : (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 10
+                                ? 'bg-orange-500'
+                                : 'bg-red-500'
+                            }`}
+                            style={{
+                              width: `${(getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100}%`
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-center text-gray-600 mt-1">
+                          {((getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100).toFixed(1)}% restant
+                        </p>
+                      </div>
                     </div>
-                    <Button onClick={() => archiveLivraison(livraisonActive.id)}>
+                    <Button onClick={() => archiveLivraison(livraisonActive.id)} variant="ghost">
                       📦 Clôturer
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Sous-onglets et reste de l'interface... */}
-            </>
-          ) : (
-            <Card className="bg-gray-100">
-              <CardContent className="pt-6 text-center">
-                <Fuel size={48} className="mx-auto mb-3 text-gray-400" />
-                <p className="text-gray-600">Aucune livraison active</p>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      ) : (
-        <div className="space-y-4">
-          {livraisonsArchivees.map(livraison => {
-            const stats = getLivraisonData(livraison)
-            return (
-              <Card key={livraison.id}>
+              {/* Sous-onglets Interne / Externe */}
+              <div className="flex gap-2 border-b-2 border-gray-200">
+                <button
+                  onClick={() => setJetA1View('interne')}
+                  className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+                    jetA1View === 'interne'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Usage Interne
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-bold">
+                    {prisesInternes.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setJetA1View('externe')}
+                  className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+                    jetA1View === 'externe'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Ventes Externes
+                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-600 rounded-full text-xs font-bold">
+                    {prisesExternes.length}
+                  </span>
+                </button>
+              </div>
+
+              {/* Tableau des prises */}
+              <Card>
                 <CardContent className="pt-6">
-                  <h3 className="font-bold mb-2">
-                    📦 Livraison du {new Date(livraison.date).toLocaleDateString('fr-FR')}
-                  </h3>
-                  <div className="grid grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Initial:</span>
-                      <span className="font-bold ml-2">{livraison.volume_initial} L</span>
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-lg font-bold">
+                      {jetA1View === 'externe' ? 'Ventes Externes' : 'Prises Internes'}
+                    </h4>
+                    <Button
+                      onClick={() => {
+                        setNewPrise({ ...newPrise, type: jetA1View })
+                        setShowAddPrise(!showAddPrise)
+                      }}
+                      size="sm"
+                    >
+                      + {jetA1View === 'externe' ? 'Ajouter vente' : 'Ajouter prise'}
+                    </Button>
+                  </div>
+
+                  {showAddPrise && (
+                    <div className="bg-blue-50 p-3 rounded-lg mb-4 border border-blue-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+                        <input
+                          type="text"
+                          value={newPrise.immatriculation}
+                          onChange={(e) => setNewPrise({ ...newPrise, immatriculation: e.target.value })}
+                          placeholder={jetA1View === 'externe' ? 'Immat/Référence' : 'Immatriculation'}
+                          className="p-2 border rounded-lg text-sm"
+                        />
+                        <input
+                          type="text"
+                          value={newPrise.nom}
+                          onChange={(e) => setNewPrise({ ...newPrise, nom: e.target.value })}
+                          placeholder={jetA1View === 'externe' ? 'Client/Compagnie' : 'Nom'}
+                          className="p-2 border rounded-lg text-sm"
+                        />
+                        <input
+                          type="date"
+                          value={newPrise.date}
+                          onChange={(e) => setNewPrise({ ...newPrise, date: e.target.value })}
+                          className="p-2 border rounded-lg text-sm"
+                        />
+                        <input
+                          type="number"
+                          value={newPrise.volume}
+                          onChange={(e) => setNewPrise({ ...newPrise, volume: e.target.value })}
+                          placeholder="Volume (L)"
+                          className="p-2 border rounded-lg text-sm"
+                        />
+                        {jetA1View === 'externe' && (
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={newPrise.prixLitre}
+                            onChange={(e) => setNewPrise({ ...newPrise, prixLitre: e.target.value })}
+                            placeholder="Prix/L (€)"
+                            className="p-2 border rounded-lg text-sm"
+                          />
+                        )}
+                      </div>
+                      {jetA1View === 'externe' && newPrise.volume && newPrise.prixLitre && (
+                        <div className="mt-2 text-sm font-semibold text-green-700">
+                          Prix total: {(parseFloat(newPrise.volume) * parseFloat(newPrise.prixLitre)).toFixed(2)} €
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-2">
+                        <Button onClick={addPrise} size="sm">Ajouter</Button>
+                        <Button onClick={() => setShowAddPrise(false)} variant="ghost" size="sm">
+                          Annuler
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-600">Consommé:</span>
-                      <span className="font-bold ml-2">{stats.totalConsomme.toFixed(1)} L</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Restant:</span>
-                      <span className="font-bold ml-2">{stats.restant.toFixed(1)} L</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Ventes:</span>
-                      <span className="font-bold ml-2 text-green-600">{stats.totalVentesExternes.toFixed(2)} €</span>
-                    </div>
+                  )}
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="p-2 text-left">Immat/Réf</th>
+                          <th className="p-2 text-left">Nom/Client</th>
+                          <th className="p-2 text-left">Date</th>
+                          <th className="p-2 text-right">Volume (L)</th>
+                          {jetA1View === 'externe' && (
+                            <>
+                              <th className="p-2 text-right">Prix/L (€)</th>
+                              <th className="p-2 text-right">Total (€)</th>
+                            </>
+                          )}
+                          <th className="p-2 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayedPrises.length === 0 ? (
+                          <tr>
+                            <td colSpan={jetA1View === 'externe' ? 7 : 5} className="text-center py-8 text-gray-400">
+                              <Fuel size={48} className="mx-auto mb-3 opacity-50" />
+                              <p>{jetA1View === 'externe' ? 'Aucune vente enregistrée' : 'Aucune prise enregistrée'}</p>
+                            </td>
+                          </tr>
+                        ) : (
+                          displayedPrises.map(prise => (
+                            <tr key={prise.id} className="border-b hover:bg-gray-50">
+                              <td className="p-2">{prise.immatriculation}</td>
+                              <td className="p-2">{prise.nom}</td>
+                              <td className="p-2">{new Date(prise.date).toLocaleDateString('fr-FR')}</td>
+                              <td className="p-2 text-right font-semibold">{prise.volume} L</td>
+                              {jetA1View === 'externe' && (
+                                <>
+                                  <td className="p-2 text-right">{prise.prix_litre?.toFixed(2)} €</td>
+                                  <td className="p-2 text-right font-bold text-green-600">
+                                    {prise.prix_total?.toFixed(2)} €
+                                  </td>
+                                </>
+                              )}
+                              <td className="p-2 text-center">
+                                <button
+                                  onClick={() => deletePrise(prise.id, livraisonActive.id)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  🗑️
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
-            )
-          })}
+            </>
+          ) : (
+            <div className="bg-gray-100 p-8 rounded-lg text-center">
+              <Fuel size={48} className="mx-auto mb-3 text-gray-400" />
+              <p className="text-gray-600 mb-3">⛽ Aucune livraison active</p>
+              <Button onClick={() => setShowAddLivraison(true)}>
+                + Créer une livraison
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Livraisons archivées */
+        <div className="space-y-4">
+          {livraisonsArchivees.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 bg-white rounded-lg">
+              <Fuel size={48} className="mx-auto mb-3 opacity-50" />
+              <p>Aucune livraison clôturée</p>
+            </div>
+          ) : (
+            livraisonsArchivees.map(livraison => {
+              const { totalConsomme, restant, totalVentesExternes, totalInternes, totalExternes } = getLivraisonData(livraison)
+              
+              return (
+                <Card key={livraison.id} className="border border-gray-300">
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <h4 className="text-lg font-bold mb-2">
+                          📦 Livraison du {new Date(livraison.date).toLocaleDateString('fr-FR')}
+                          <span className="ml-3 text-sm text-gray-500 font-normal">
+                            Clôturée le {new Date(livraison.date_archivage).toLocaleDateString('fr-FR')}
+                          </span>
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-600">Stock initial</p>
+                            <p className="text-lg font-bold text-gray-600">{livraison.stock_initial || 0} L</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Volume livré</p>
+                            <p className="text-lg font-bold text-orange-600">{livraison.volume_livre} L</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Total disponible</p>
+                            <p className="text-lg font-bold text-gray-800">{livraison.volume_initial} L</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Usage interne</p>
+                            <p className="text-lg font-bold text-blue-600">{totalInternes.toFixed(1)} L</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Ventes externes</p>
+                            <p className="text-lg font-bold text-green-600">{totalExternes.toFixed(1)} L</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Restant</p>
+                            <p className="text-lg font-bold text-gray-600">{restant.toFixed(1)} L</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-sm">
+                          <span className="font-semibold">Total ventes: </span>
+                          <span className="text-green-700 font-bold">{totalVentesExternes.toFixed(2)} €</span>
+                        </div>
+                      </div>
+                      <Button onClick={() => unarchiveLivraison(livraison.id)} variant="ghost" size="sm">
+                        ↩️ Réactiver
+                      </Button>
+                    </div>
+                    
+                    {/* Détails des prises */}
+                    <details className="mt-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-gray-700 hover:text-gray-900">
+                        Voir le détail des prises ({livraison.prises.length})
+                      </summary>
+                      <div className="mt-3 overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="p-2 text-left">Type</th>
+                              <th className="p-2 text-left">Immat/Réf</th>
+                              <th className="p-2 text-left">Nom/Client</th>
+                              <th className="p-2 text-left">Date</th>
+                              <th className="p-2 text-right">Volume</th>
+                              <th className="p-2 text-right">Prix/L</th>
+                              <th className="p-2 text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {livraison.prises.map(prise => (
+                              <tr key={prise.id} className="border-b">
+                                <td className="p-2">
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    prise.type === 'interne' 
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {prise.type === 'interne' ? 'Interne' : 'Externe'}
+                                  </span>
+                                </td>
+                                <td className="p-2">{prise.immatriculation}</td>
+                                <td className="p-2">{prise.nom}</td>
+                                <td className="p-2">{new Date(prise.date).toLocaleDateString('fr-FR')}</td>
+                                <td className="p-2 text-right font-semibold">{prise.volume} L</td>
+                                <td className="p-2 text-right">
+                                  {prise.prix_litre ? `${prise.prix_litre.toFixed(2)} €` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-bold text-green-600">
+                                  {prise.prix_total ? `${prise.prix_total.toFixed(2)} €` : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </CardContent>
+                </Card>
+              )
+            })
+          )}
         </div>
       )}
     </div>
