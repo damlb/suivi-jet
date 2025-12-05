@@ -254,7 +254,36 @@ export default function CaisseModule() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 justify-end items-center">
+      {/* Cartes de résumé */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <Card className="bg-gradient-to-br from-emerald-400 to-emerald-500 text-white shadow-lg">
+          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+            <p className="text-[10px] sm:text-sm opacity-90">Total Ventes</p>
+            <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{totalEncaissements.toFixed(2)} €</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-lg">
+          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+            <p className="text-[10px] sm:text-sm opacity-90">Total Achats</p>
+            <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{totalDecaissements.toFixed(2)} €</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-violet-400 to-violet-500 text-white shadow-lg">
+          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+            <p className="text-[10px] sm:text-sm opacity-90">Dépôts Banque</p>
+            <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{totalDepots.toFixed(2)} €</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-sky-400 to-sky-500 text-white shadow-lg">
+          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+            <p className="text-[10px] sm:text-sm opacity-90">Cash Dispo</p>
+            <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{cashDisponible.toFixed(2)} €</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Boutons d'action - Après les cartes */}
+      <div className="grid grid-cols-3 gap-2">
         <Button 
           onClick={() => {
             setNewTransaction({
@@ -270,7 +299,7 @@ export default function CaisseModule() {
             setActiveView('ventes')
             setShowAddTransaction(true)
           }}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm py-2 sm:py-3"
         >
           + Vente
         </Button>
@@ -289,7 +318,7 @@ export default function CaisseModule() {
             setActiveView('achats')
             setShowAddTransaction(true)
           }}
-          className="bg-rose-500 hover:bg-rose-600 text-white text-sm"
+          className="bg-rose-500 hover:bg-rose-600 text-white text-xs sm:text-sm py-2 sm:py-3"
         >
           + Achat
         </Button>
@@ -308,38 +337,10 @@ export default function CaisseModule() {
             setActiveView('depots')
             setShowAddTransaction(true)
           }}
-          className="bg-sky-500 hover:bg-sky-600 text-white text-sm"
+          className="bg-sky-500 hover:bg-sky-600 text-white text-xs sm:text-sm py-2 sm:py-3"
         >
-          🏦 Dépôt Banque
+          🏦 Dépôt
         </Button>
-      </div>
-
-      {/* Cartes de résumé */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="bg-gradient-to-br from-emerald-400 to-emerald-500 text-white shadow-lg">
-          <CardContent className="pt-4 sm:pt-6">
-            <p className="text-xs sm:text-sm opacity-90">Total Ventes</p>
-            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalEncaissements.toFixed(2)} €</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-lg">
-          <CardContent className="pt-4 sm:pt-6">
-            <p className="text-xs sm:text-sm opacity-90">Total Achats</p>
-            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalDecaissements.toFixed(2)} €</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-violet-400 to-violet-500 text-white shadow-lg">
-          <CardContent className="pt-4 sm:pt-6">
-            <p className="text-xs sm:text-sm opacity-90">Dépôts Banque</p>
-            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{totalDepots.toFixed(2)} €</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-sky-400 to-sky-500 text-white shadow-lg">
-          <CardContent className="pt-4 sm:pt-6">
-            <p className="text-xs sm:text-sm opacity-90">Cash Dispo</p>
-            <p className="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{cashDisponible.toFixed(2)} €</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Formulaire d'ajout */}
@@ -439,7 +440,7 @@ export default function CaisseModule() {
       <div className="flex gap-2 border-b-2 border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveView('ventes')}
-          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
+          className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-xs sm:text-base whitespace-nowrap ${
             activeView === 'ventes'
               ? 'border-emerald-500 text-emerald-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -452,7 +453,7 @@ export default function CaisseModule() {
         </button>
         <button
           onClick={() => setActiveView('achats')}
-          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
+          className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-xs sm:text-base whitespace-nowrap ${
             activeView === 'achats'
               ? 'border-rose-500 text-rose-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -465,13 +466,13 @@ export default function CaisseModule() {
         </button>
         <button
           onClick={() => setActiveView('depots')}
-          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm sm:text-base whitespace-nowrap ${
+          className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-xs sm:text-base whitespace-nowrap ${
             activeView === 'depots'
               ? 'border-violet-500 text-violet-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          🏦 Dépôts Banque
+          🏦 Dépôts
           <span className="ml-2 px-2 py-1 bg-violet-100 text-violet-700 rounded-full text-xs font-bold">
             {transactionsDepots.length}
           </span>

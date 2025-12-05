@@ -11,6 +11,7 @@ import ManifestModule from './components/ManifestModule'
 import UserManagementModule from './components/UserManagementModule'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
+import { LogOut, Users } from 'lucide-react'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -102,18 +103,18 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
         {/* Header avec Navigation */}
-        <Card className="mb-6 shadow-lg">
-          <CardHeader>
-            <div className="flex flex-col gap-4">
+        <Card className="mb-4 sm:mb-6 shadow-lg">
+          <CardHeader className="p-3 sm:p-6">
+            <div className="flex flex-col gap-3 sm:gap-4">
               <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="text-3xl font-bold text-gray-800">
-                    Suivi Quotidien
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-800 truncate">
+                    JSHS
                   </CardTitle>
-                  <p className="text-gray-600 mt-1">
-                    Bonjour {username || 'Utilisateur'} 👋
+                  <p className="text-sm sm:text-base text-gray-600 mt-1 truncate">
+                    Bonjour {username || 'Utilisateur'}
                     {userRole === 'pilote' && (
                       <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
                         Pilote
@@ -121,29 +122,38 @@ function App() {
                     )}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1 sm:gap-2 flex-shrink-0">
                   {canAccessModule('users') && (
                     <Button 
                       onClick={() => setActiveModule('users')}
                       variant={activeModule === 'users' ? 'default' : 'outline'}
+                      className="p-2 sm:px-4 sm:py-2"
+                      size="sm"
                     >
-                      👤 Utilisateurs
+                      <Users className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Utilisateurs</span>
                     </Button>
                   )}
-                  <Button onClick={handleSignOut} variant="ghost">
-                    Se déconnecter
+                  <Button 
+                    onClick={handleSignOut} 
+                    variant="ghost"
+                    className="p-2 sm:px-4 sm:py-2"
+                    size="sm"
+                  >
+                    <LogOut className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Se déconnecter</span>
                   </Button>
                 </div>
               </div>
 
               {/* Navigation par onglets */}
-              <div className="flex gap-2 border-t pt-4 overflow-x-auto pb-2">
+              <div className="flex gap-1 sm:gap-2 border-t pt-3 sm:pt-4 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
                 {/* PILOTES : FlightLog, Jet A1, DZ en PREMIER */}
                 {userRole === 'pilote' && (
                   <>
                     <button
                       onClick={() => setActiveModule('flightlog')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'flightlog'
                           ? 'bg-blue-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -154,7 +164,7 @@ function App() {
                     
                     <button
                       onClick={() => setActiveModule('jeta1')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'jeta1'
                           ? 'bg-orange-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -166,7 +176,7 @@ function App() {
 
                     <button
                       onClick={() => setActiveModule('dropzones')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'dropzones'
                           ? 'bg-purple-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -177,7 +187,7 @@ function App() {
 
                     <button
                       onClick={() => setActiveModule('manifest')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'manifest'
                           ? 'bg-green-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -193,7 +203,7 @@ function App() {
                   <>
                     <button
                       onClick={() => setActiveModule('notes')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'notes'
                           ? 'bg-blue-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -204,7 +214,7 @@ function App() {
 
                     <button
                       onClick={() => setActiveModule('liste')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'liste'
                           ? 'bg-purple-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -215,7 +225,7 @@ function App() {
 
                     <button
                       onClick={() => setActiveModule('jeta1')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'jeta1'
                           ? 'bg-orange-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -226,7 +236,7 @@ function App() {
 
                     <button
                       onClick={() => setActiveModule('caisse')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'caisse'
                           ? 'bg-green-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -238,7 +248,7 @@ function App() {
                     {/* FlightLog en DERNIER pour agents */}
                     <button
                       onClick={() => setActiveModule('flightlog')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'flightlog'
                           ? 'bg-blue-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -250,7 +260,7 @@ function App() {
                     {/* Drop Zones */}
                     <button
                       onClick={() => setActiveModule('dropzones')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'dropzones'
                           ? 'bg-purple-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -262,7 +272,7 @@ function App() {
                     {/* Manifeste de Vol (PVE) */}
                     <button
                       onClick={() => setActiveModule('manifest')}
-                      className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
                         activeModule === 'manifest'
                           ? 'bg-green-500 text-white shadow-md'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -279,7 +289,7 @@ function App() {
 
         {/* Contenu du module actif */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             {activeModule === 'users' && <UserManagementModule currentUserId={session.user.id} />}
             {activeModule === 'flightlog' && (
               <FlightLogModule 

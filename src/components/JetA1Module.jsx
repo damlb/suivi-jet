@@ -178,8 +178,8 @@ export default function JetA1Module({ userRole, userId }) {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">⛽ Suivi Jet A1 - Mode Pilote</h2>
-          <p className="text-gray-600">Interface simplifiée pour enregistrer vos prises de carburant</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">⛽ Suivi Jet A1 - Mode Pilote</h2>
+          <p className="text-sm sm:text-base text-gray-600">Interface simplifiée pour enregistrer vos prises de carburant</p>
         </div>
 
         {!livraisonActive ? (
@@ -196,61 +196,61 @@ export default function JetA1Module({ userRole, userId }) {
           <>
             {/* 1️⃣ ENREGISTRER UNE PRISE - EN PREMIER */}
             <Card className="border-2 border-blue-500 shadow-lg">
-              <CardHeader className="bg-blue-50">
-                <CardTitle className="flex items-center gap-2 text-blue-900">
-                  <Fuel size={24} />
+              <CardHeader className="bg-blue-50 p-3 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-blue-900 text-base sm:text-xl">
+                  <Fuel size={20} className="sm:w-6 sm:h-6" />
                   🛫 Enregistrer une prise de carburant
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
                 {!showAddPrise ? (
                   <Button 
                     onClick={() => setShowAddPrise(true)}
-                    className="w-full py-6 text-lg bg-blue-500 hover:bg-blue-600"
+                    className="w-full py-4 sm:py-6 text-base sm:text-lg bg-blue-500 hover:bg-blue-600"
                   >
-                    <Plus size={24} className="mr-2" />
+                    <Plus size={20} className="mr-2 sm:w-6 sm:h-6" />
                     Ajouter une prise
                   </Button>
                 ) : (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-medium mb-1">Immatriculation *</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">Immatriculation *</label>
                         <input
                           type="text"
                           value={newPrise.immatriculation}
                           onChange={(e) => setNewPrise({ ...newPrise, immatriculation: e.target.value })}
                           placeholder="Ex: F-HXYZ"
-                          className="w-full p-2 border rounded-lg"
+                          className="w-full p-2 border rounded-lg text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1">Pilote / Nom *</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">Pilote / Nom *</label>
                         <input
                           type="text"
                           value={newPrise.nom}
                           onChange={(e) => setNewPrise({ ...newPrise, nom: e.target.value })}
                           placeholder="Votre nom"
-                          className="w-full p-2 border rounded-lg"
+                          className="w-full p-2 border rounded-lg text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1">Date *</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">Date *</label>
                         <input
                           type="date"
                           value={newPrise.date}
                           onChange={(e) => setNewPrise({ ...newPrise, date: e.target.value })}
-                          className="w-full p-2 border rounded-lg"
+                          className="w-full p-2 border rounded-lg text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1">Volume (L) *</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">Volume (L) *</label>
                         <input
                           type="number"
                           value={newPrise.volume}
                           onChange={(e) => setNewPrise({ ...newPrise, volume: e.target.value })}
                           placeholder="Litres"
-                          className="w-full p-2 border rounded-lg"
+                          className="w-full p-2 border rounded-lg text-sm"
                         />
                       </div>
                     </div>
@@ -258,7 +258,7 @@ export default function JetA1Module({ userRole, userId }) {
                     <div className="flex gap-2 mt-4">
                       <Button 
                         onClick={addPrise}
-                        className="flex-1 bg-green-500 hover:bg-green-600"
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-sm sm:text-base"
                       >
                         ✅ Enregistrer
                       </Button>
@@ -275,7 +275,7 @@ export default function JetA1Module({ userRole, userId }) {
                             type: 'interne'
                           })
                         }}
-                        className="flex-1"
+                        className="flex-1 text-sm sm:text-base"
                       >
                         ❌ Annuler
                       </Button>
@@ -287,29 +287,29 @@ export default function JetA1Module({ userRole, userId }) {
 
             {/* 2️⃣ STOCK ACTUEL - EN DEUXIÈME */}
             <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-2 border-orange-300 shadow-lg">
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
                 <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-2">📦 Stock disponible</p>
-                  <div className="text-5xl font-bold text-orange-600 mb-3">
+                  <p className="text-xs sm:text-sm text-gray-600 mb-2">📦 Stock disponible</p>
+                  <div className="text-3xl sm:text-5xl font-bold text-orange-600 mb-3">
                     {getLivraisonData(livraisonActive).restant.toFixed(1)} L
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-4 mt-6">
-                    <div className="bg-white rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Initial</p>
-                      <p className="text-lg font-bold text-gray-800">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 sm:mt-6">
+                    <div className="bg-white rounded-lg p-2 sm:p-3">
+                      <p className="text-[10px] sm:text-xs text-gray-600 mb-1">Initial</p>
+                      <p className="text-sm sm:text-lg font-bold text-gray-800">
                         {livraisonActive.volume_initial} L
                       </p>
                     </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Consommé</p>
-                      <p className="text-lg font-bold text-red-600">
+                    <div className="bg-white rounded-lg p-2 sm:p-3">
+                      <p className="text-[10px] sm:text-xs text-gray-600 mb-1">Consommé</p>
+                      <p className="text-sm sm:text-lg font-bold text-red-600">
                         {getLivraisonData(livraisonActive).totalConsomme.toFixed(1)} L
                       </p>
                     </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Restant</p>
-                      <p className="text-lg font-bold text-green-600">
+                    <div className="bg-white rounded-lg p-2 sm:p-3">
+                      <p className="text-[10px] sm:text-xs text-gray-600 mb-1">Restant</p>
+                      <p className="text-sm sm:text-lg font-bold text-green-600">
                         {getLivraisonData(livraisonActive).restant.toFixed(1)} L
                       </p>
                     </div>
@@ -317,9 +317,9 @@ export default function JetA1Module({ userRole, userId }) {
 
                   {/* Barre de progression */}
                   <div className="mt-4">
-                    <div className="w-full bg-gray-300 rounded-full h-4">
+                    <div className="w-full bg-gray-300 rounded-full h-3 sm:h-4">
                       <div
-                        className={`h-4 rounded-full transition-all ${
+                        className={`h-3 sm:h-4 rounded-full transition-all ${
                           (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 30
                             ? 'bg-green-500'
                             : (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 10
@@ -331,7 +331,7 @@ export default function JetA1Module({ userRole, userId }) {
                         }}
                       />
                     </div>
-                    <p className="text-xs text-center text-gray-600 mt-1">
+                    <p className="text-[10px] sm:text-xs text-center text-gray-600 mt-1">
                       {((getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100).toFixed(1)}% disponible
                     </p>
                   </div>
@@ -341,32 +341,32 @@ export default function JetA1Module({ userRole, userId }) {
 
             {/* 3️⃣ DERNIÈRES PRISES - EN TROISIÈME */}
             <Card>
-              <CardHeader>
-                <CardTitle>📋 Dernières prises enregistrées</CardTitle>
+              <CardHeader className="p-3 sm:p-6">
+                <CardTitle className="text-base sm:text-xl">📋 Dernières prises enregistrées</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6">
                 {livraisonActive.prises.length === 0 ? (
                   <div className="text-center py-8 text-gray-400">
-                    <Fuel size={48} className="mx-auto mb-3 opacity-50" />
-                    <p>Aucune prise enregistrée</p>
+                    <Fuel size={36} className="mx-auto mb-3 opacity-50 sm:w-12 sm:h-12" />
+                    <p className="text-sm">Aucune prise enregistrée</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {livraisonActive.prises.slice(0, 10).map((prise) => (
                       <div 
                         key={prise.id}
-                        className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border"
+                        className="flex justify-between items-center p-2 sm:p-3 bg-gray-50 rounded-lg border"
                       >
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-800">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-800 text-sm sm:text-base truncate">
                             {prise.immatriculation} - {prise.nom}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-xs sm:text-sm text-gray-600">
                             {new Date(prise.date).toLocaleDateString('fr-FR')}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-orange-600">
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-base sm:text-lg font-bold text-orange-600">
                             {prise.volume} L
                           </div>
                         </div>
@@ -481,10 +481,10 @@ export default function JetA1Module({ userRole, userId }) {
       )}
 
       {/* Onglets Livraison Active / Clôturées */}
-      <div className="flex gap-2 bg-white rounded-lg p-2 shadow-md">
+      <div className="flex gap-2 bg-white rounded-lg p-2 shadow-md overflow-x-auto">
         <button
           onClick={() => setViewArchived(false)}
-          className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
+          className={`flex-1 py-2 px-3 sm:px-4 rounded-lg font-semibold transition-all text-sm whitespace-nowrap ${
             !viewArchived
               ? 'bg-orange-500 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -494,13 +494,13 @@ export default function JetA1Module({ userRole, userId }) {
         </button>
         <button
           onClick={() => setViewArchived(true)}
-          className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-all ${
+          className={`flex-1 py-2 px-3 sm:px-4 rounded-lg font-semibold transition-all text-sm whitespace-nowrap ${
             viewArchived
               ? 'bg-gray-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
-          Livraisons Clôturées ({livraisonsArchivees.length})
+          Clôturées ({livraisonsArchivees.length})
         </button>
       </div>
 
@@ -509,48 +509,48 @@ export default function JetA1Module({ userRole, userId }) {
           {livraisonActive ? (
             <>
               <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-2 border-orange-300">
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <h4 className="text-lg font-bold mb-3">
+                <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0 mb-4">
+                    <div className="flex-1 w-full">
+                      <h4 className="text-base sm:text-lg font-bold mb-3">
                         📦 Livraison en cours - {new Date(livraisonActive.date).toLocaleDateString('fr-FR')}
                       </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4">
                         <div>
-                          <p className="text-xs text-gray-600">Stock initial</p>
-                          <p className="text-xl font-bold text-gray-600">{livraisonActive.stock_initial} L</p>
+                          <p className="text-[10px] sm:text-xs text-gray-600">Stock initial</p>
+                          <p className="text-base sm:text-xl font-bold text-gray-600">{livraisonActive.stock_initial} L</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Volume livré</p>
-                          <p className="text-xl font-bold text-orange-600">{livraisonActive.volume_livre} L</p>
+                          <p className="text-[10px] sm:text-xs text-gray-600">Volume livré</p>
+                          <p className="text-base sm:text-xl font-bold text-orange-600">{livraisonActive.volume_livre} L</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Total disponible</p>
-                          <p className="text-xl font-bold text-gray-800">{livraisonActive.volume_initial} L</p>
+                          <p className="text-[10px] sm:text-xs text-gray-600">Total disponible</p>
+                          <p className="text-base sm:text-xl font-bold text-gray-800">{livraisonActive.volume_initial} L</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Consommé</p>
-                          <p className="text-xl font-bold text-red-600">
+                          <p className="text-[10px] sm:text-xs text-gray-600">Consommé</p>
+                          <p className="text-base sm:text-xl font-bold text-red-600">
                             {getLivraisonData(livraisonActive).totalConsomme.toFixed(1)} L
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Restant</p>
-                          <p className="text-xl font-bold text-green-600">
+                          <p className="text-[10px] sm:text-xs text-gray-600">Restant</p>
+                          <p className="text-base sm:text-xl font-bold text-green-600">
                             {getLivraisonData(livraisonActive).restant.toFixed(1)} L
                           </p>
                         </div>
                       </div>
-                      <div className="mt-2 text-sm">
+                      <div className="mt-2 text-xs sm:text-sm">
                         <span className="font-semibold">Ventes externes: </span>
                         <span className="text-green-700 font-bold">
                           {getLivraisonData(livraisonActive).totalVentesExternes.toFixed(2)} €
                         </span>
                       </div>
                       <div className="mt-3">
-                        <div className="w-full bg-gray-300 rounded-full h-4">
+                        <div className="w-full bg-gray-300 rounded-full h-3 sm:h-4">
                           <div
-                            className={`h-4 rounded-full transition-all ${
+                            className={`h-3 sm:h-4 rounded-full transition-all ${
                               (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 30
                                 ? 'bg-green-500'
                                 : (getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100 > 10
@@ -562,12 +562,12 @@ export default function JetA1Module({ userRole, userId }) {
                             }}
                           />
                         </div>
-                        <p className="text-xs text-center text-gray-600 mt-1">
+                        <p className="text-[10px] sm:text-xs text-center text-gray-600 mt-1">
                           {((getLivraisonData(livraisonActive).restant / livraisonActive.volume_initial) * 100).toFixed(1)}% restant
                         </p>
                       </div>
                     </div>
-                    <Button onClick={() => archiveLivraison(livraisonActive.id)} variant="ghost">
+                    <Button onClick={() => archiveLivraison(livraisonActive.id)} variant="ghost" className="text-sm w-full sm:w-auto">
                       📦 Clôturer
                     </Button>
                   </div>
@@ -575,10 +575,10 @@ export default function JetA1Module({ userRole, userId }) {
               </Card>
 
               {/* Sous-onglets Interne / Externe */}
-              <div className="flex gap-2 border-b-2 border-gray-200">
+              <div className="flex gap-2 border-b-2 border-gray-200 overflow-x-auto">
                 <button
                   onClick={() => setJetA1View('interne')}
-                  className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+                  className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm whitespace-nowrap ${
                     jetA1View === 'interne'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -591,7 +591,7 @@ export default function JetA1Module({ userRole, userId }) {
                 </button>
                 <button
                   onClick={() => setJetA1View('externe')}
-                  className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+                  className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm whitespace-nowrap ${
                     jetA1View === 'externe'
                       ? 'border-green-500 text-green-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -608,7 +608,7 @@ export default function JetA1Module({ userRole, userId }) {
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-lg font-bold">
+                    <h4 className="text-base sm:text-lg font-bold">
                       {jetA1View === 'externe' ? 'Ventes Externes' : 'Prises Internes'}
                     </h4>
                     <Button
@@ -617,6 +617,7 @@ export default function JetA1Module({ userRole, userId }) {
                         setShowAddPrise(!showAddPrise)
                       }}
                       size="sm"
+                      className="text-xs sm:text-sm"
                     >
                       + {jetA1View === 'externe' ? 'Ajouter vente' : 'Ajouter prise'}
                     </Button>
@@ -624,7 +625,7 @@ export default function JetA1Module({ userRole, userId }) {
 
                   {showAddPrise && (
                     <div className="bg-blue-50 p-3 rounded-lg mb-4 border border-blue-200">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
                         <input
                           type="text"
                           value={newPrise.immatriculation}
@@ -677,8 +678,8 @@ export default function JetA1Module({ userRole, userId }) {
                     </div>
                   )}
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                  <div className="overflow-x-auto -mx-3 sm:mx-0">
+                    <table className="w-full text-xs sm:text-sm">
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="p-2 text-left">Immat/Réf</th>
@@ -687,7 +688,7 @@ export default function JetA1Module({ userRole, userId }) {
                           <th className="p-2 text-right">Volume (L)</th>
                           {jetA1View === 'externe' && (
                             <>
-                              <th className="p-2 text-right">Prix/L (€)</th>
+                              <th className="p-2 text-right hidden sm:table-cell">Prix/L (€)</th>
                               <th className="p-2 text-right">Total (€)</th>
                             </>
                           )}
@@ -698,8 +699,8 @@ export default function JetA1Module({ userRole, userId }) {
                         {displayedPrises.length === 0 ? (
                           <tr>
                             <td colSpan={jetA1View === 'externe' ? 7 : 5} className="text-center py-8 text-gray-400">
-                              <Fuel size={48} className="mx-auto mb-3 opacity-50" />
-                              <p>{jetA1View === 'externe' ? 'Aucune vente enregistrée' : 'Aucune prise enregistrée'}</p>
+                              <Fuel size={36} className="mx-auto mb-3 opacity-50 sm:w-12 sm:h-12" />
+                              <p className="text-sm">{jetA1View === 'externe' ? 'Aucune vente enregistrée' : 'Aucune prise enregistrée'}</p>
                             </td>
                           </tr>
                         ) : (
@@ -711,7 +712,7 @@ export default function JetA1Module({ userRole, userId }) {
                               <td className="p-2 text-right font-semibold">{prise.volume} L</td>
                               {jetA1View === 'externe' && (
                                 <>
-                                  <td className="p-2 text-right">{prise.prix_litre?.toFixed(2)} €</td>
+                                  <td className="p-2 text-right hidden sm:table-cell">{prise.prix_litre?.toFixed(2)} €</td>
                                   <td className="p-2 text-right font-bold text-green-600">
                                     {prise.prix_total?.toFixed(2)} €
                                   </td>
@@ -736,9 +737,9 @@ export default function JetA1Module({ userRole, userId }) {
             </>
           ) : (
             <div className="bg-gray-100 p-8 rounded-lg text-center">
-              <Fuel size={48} className="mx-auto mb-3 text-gray-400" />
-              <p className="text-gray-600 mb-3">⛽ Aucune livraison active</p>
-              <Button onClick={() => setShowAddLivraison(true)}>
+              <Fuel size={36} className="mx-auto mb-3 text-gray-400 sm:w-12 sm:h-12" />
+              <p className="text-sm sm:text-base text-gray-600 mb-3">⛽ Aucune livraison active</p>
+              <Button onClick={() => setShowAddLivraison(true)} className="text-sm sm:text-base">
                 + Créer une livraison
               </Button>
             </div>
@@ -749,8 +750,8 @@ export default function JetA1Module({ userRole, userId }) {
         <div className="space-y-4">
           {livraisonsArchivees.length === 0 ? (
             <div className="text-center py-12 text-gray-400 bg-white rounded-lg">
-              <Fuel size={48} className="mx-auto mb-3 opacity-50" />
-              <p>Aucune livraison clôturée</p>
+              <Fuel size={36} className="mx-auto mb-3 opacity-50 sm:w-12 sm:h-12" />
+              <p className="text-sm">Aucune livraison clôturée</p>
             </div>
           ) : (
             livraisonsArchivees.map(livraison => {
@@ -758,58 +759,58 @@ export default function JetA1Module({ userRole, userId }) {
               
               return (
                 <Card key={livraison.id} className="border border-gray-300">
-                  <CardContent className="pt-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h4 className="text-lg font-bold mb-2">
+                  <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0 mb-4">
+                      <div className="flex-1 w-full">
+                        <h4 className="text-base sm:text-lg font-bold mb-2">
                           📦 Livraison du {new Date(livraison.date).toLocaleDateString('fr-FR')}
-                          <span className="ml-3 text-sm text-gray-500 font-normal">
+                          <span className="block sm:inline ml-0 sm:ml-3 text-xs sm:text-sm text-gray-500 font-normal mt-1 sm:mt-0">
                             Clôturée le {new Date(livraison.date_archivage).toLocaleDateString('fr-FR')}
                           </span>
                         </h4>
-                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-4">
                           <div>
-                            <p className="text-xs text-gray-600">Stock initial</p>
-                            <p className="text-lg font-bold text-gray-600">{livraison.stock_initial || 0} L</p>
+                            <p className="text-[10px] sm:text-xs text-gray-600">Stock initial</p>
+                            <p className="text-sm sm:text-lg font-bold text-gray-600">{livraison.stock_initial || 0} L</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600">Volume livré</p>
-                            <p className="text-lg font-bold text-orange-600">{livraison.volume_livre} L</p>
+                            <p className="text-[10px] sm:text-xs text-gray-600">Volume livré</p>
+                            <p className="text-sm sm:text-lg font-bold text-orange-600">{livraison.volume_livre} L</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600">Total disponible</p>
-                            <p className="text-lg font-bold text-gray-800">{livraison.volume_initial} L</p>
+                            <p className="text-[10px] sm:text-xs text-gray-600">Total disponible</p>
+                            <p className="text-sm sm:text-lg font-bold text-gray-800">{livraison.volume_initial} L</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600">Usage interne</p>
-                            <p className="text-lg font-bold text-blue-600">{totalInternes.toFixed(1)} L</p>
+                            <p className="text-[10px] sm:text-xs text-gray-600">Usage interne</p>
+                            <p className="text-sm sm:text-lg font-bold text-blue-600">{totalInternes.toFixed(1)} L</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600">Ventes externes</p>
-                            <p className="text-lg font-bold text-green-600">{totalExternes.toFixed(1)} L</p>
+                            <p className="text-[10px] sm:text-xs text-gray-600">Ventes externes</p>
+                            <p className="text-sm sm:text-lg font-bold text-green-600">{totalExternes.toFixed(1)} L</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600">Restant</p>
-                            <p className="text-lg font-bold text-gray-600">{restant.toFixed(1)} L</p>
+                            <p className="text-[10px] sm:text-xs text-gray-600">Restant</p>
+                            <p className="text-sm sm:text-lg font-bold text-gray-600">{restant.toFixed(1)} L</p>
                           </div>
                         </div>
-                        <div className="mt-2 text-sm">
+                        <div className="mt-2 text-xs sm:text-sm">
                           <span className="font-semibold">Total ventes: </span>
                           <span className="text-green-700 font-bold">{totalVentesExternes.toFixed(2)} €</span>
                         </div>
                       </div>
-                      <Button onClick={() => unarchiveLivraison(livraison.id)} variant="ghost" size="sm">
+                      <Button onClick={() => unarchiveLivraison(livraison.id)} variant="ghost" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
                         ↩️ Réactiver
                       </Button>
                     </div>
                     
                     {/* Détails des prises */}
                     <details className="mt-4">
-                      <summary className="cursor-pointer text-sm font-semibold text-gray-700 hover:text-gray-900">
+                      <summary className="cursor-pointer text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900">
                         Voir le détail des prises ({livraison.prises.length})
                       </summary>
-                      <div className="mt-3 overflow-x-auto">
-                        <table className="w-full text-xs">
+                      <div className="mt-3 overflow-x-auto -mx-3 sm:mx-0">
+                        <table className="w-full text-[10px] sm:text-xs">
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="p-2 text-left">Type</th>
@@ -817,7 +818,7 @@ export default function JetA1Module({ userRole, userId }) {
                               <th className="p-2 text-left">Nom/Client</th>
                               <th className="p-2 text-left">Date</th>
                               <th className="p-2 text-right">Volume</th>
-                              <th className="p-2 text-right">Prix/L</th>
+                              <th className="p-2 text-right hidden sm:table-cell">Prix/L</th>
                               <th className="p-2 text-right">Total</th>
                             </tr>
                           </thead>
@@ -825,19 +826,19 @@ export default function JetA1Module({ userRole, userId }) {
                             {livraison.prises.map(prise => (
                               <tr key={prise.id} className="border-b">
                                 <td className="p-2">
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  <span className={`px-2 py-1 rounded text-[10px] font-medium ${
                                     prise.type === 'interne' 
                                       ? 'bg-blue-100 text-blue-700'
                                       : 'bg-green-100 text-green-700'
                                   }`}>
-                                    {prise.type === 'interne' ? 'Interne' : 'Externe'}
+                                    {prise.type === 'interne' ? 'Int' : 'Ext'}
                                   </span>
                                 </td>
                                 <td className="p-2">{prise.immatriculation}</td>
                                 <td className="p-2">{prise.nom}</td>
                                 <td className="p-2">{new Date(prise.date).toLocaleDateString('fr-FR')}</td>
                                 <td className="p-2 text-right font-semibold">{prise.volume} L</td>
-                                <td className="p-2 text-right">
+                                <td className="p-2 text-right hidden sm:table-cell">
                                   {prise.prix_litre ? `${prise.prix_litre.toFixed(2)} €` : '-'}
                                 </td>
                                 <td className="p-2 text-right font-bold text-green-600">
