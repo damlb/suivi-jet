@@ -55,13 +55,7 @@ export default function UserManagementModule({ currentUserId }) {
     // Créer l'utilisateur dans Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: newUser.email,
-      password: newUser.password,
-      options: {
-        data: {
-          username: newUser.username,
-          role: newUser.role
-        }
-      }
+      password: newUser.password
     })
 
     if (authError) {
@@ -70,6 +64,9 @@ export default function UserManagementModule({ currentUserId }) {
     }
 
     if (authData.user) {
+      // ATTENDRE un peu que le trigger crée le profil
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       // Mettre à jour le profil avec le rôle et permissions
       const { error: profileError } = await supabase
         .from('profiles')
@@ -82,10 +79,22 @@ export default function UserManagementModule({ currentUserId }) {
         .eq('id', authData.user.id)
 
       if (!profileError) {
-        alert(`✅ Utilisateur créé avec succès !\n\nEmail : ${newUser.email}\nMot de passe : ${newUser.password}\n\n⚠️ L'utilisateur doit confirmer son email.`)
+        alert(`✅ Utilisateur créé avec succès !
+
+Email : ${newUser.email}
+Mot de passe : ${newUser.password}
+Rôle : ${newUser.role === 'pilote' ? '✈️ Pilote' : '🛠️ Agent au sol'}
+
+⚠️ IMPORTANT : 
+- En production, l'utilisateur recevra un email de confirmation
+- En développement local, le compte est directement actif
+- Communiquez-lui le mot de passe temporaire`)
+        
         setNewUser({ email: '', password: '', username: '', role: 'pilote' })
         setShowCreateUser(false)
-        loadUsers()
+        
+        // Recharger après 1 seconde pour être sûr
+        setTimeout(() => loadUsers(), 1000)
       } else {
         alert(`❌ Erreur profil : ${profileError.message}`)
       }
