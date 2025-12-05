@@ -70,7 +70,10 @@ export default function UserManagementModule({ currentUserId }) {
     }
 
     if (authData.user) {
-      // Mettre à jour le profil avec le rôle et permissions
+      // Attendre un peu que le trigger crée le profil
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Mettre à jour le profil avec le bon username, rôle et permissions
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
@@ -87,18 +90,14 @@ export default function UserManagementModule({ currentUserId }) {
         setShowCreateUser(false)
         loadUsers()
       } else {
+        console.error('Erreur update profil:', profileError)
         alert(`❌ Erreur profil : ${profileError.message}`)
       }
     }
   }
 
   const updateUserRole = async (userId, newRole) => {
-    // Empêcher la rétrogradation agent_sol -> pilote
-    const user = users.find(u => u.id === userId)
-    if (user.role === 'agent_sol' && newRole === 'pilote') {
-      alert('❌ Impossible de changer un agent au sol en pilote')
-      return
-    }
+    // SUPPRIMÉ : Plus de protection contre downgrade agent_sol -> pilote
 
     // Changer les permissions selon le nouveau rôle
     const newPermissions = newRole === 'agent_sol'
