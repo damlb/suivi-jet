@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Plane, MapPin, Clock, Calendar, Trash2 } from 'lucide-react'
+import { Plane, MapPin, Clock, Calendar, Trash2, Filter } from 'lucide-react'
 
 export default function FlightLogModule({ userId, userRole }) {
   const [dropZones, setDropZones] = useState([])
   const [flights, setFlights] = useState([])
+  const [allFlights, setAllFlights] = useState([]) // Tous les vols pour filtrage
   const [currentFlight, setCurrentFlight] = useState(null)
   const [loading, setLoading] = useState(true)
+  
+  // Filtres
+  const [pilots, setPilots] = useState([])
+  const [selectedPilot, setSelectedPilot] = useState('all')
+  const [selectedDate, setSelectedDate] = useState('')
   
   // État pour le formulaire de décollage/atterrissage
   const [searchTerm, setSearchTerm] = useState('')
@@ -38,13 +44,33 @@ export default function FlightLogModule({ userId, userRole }) {
     loadData()
   }, [])
 
+  // Filtrer les vols quand les filtres changent
+  useEffect(() => {
+    filterFlights()
+  }, [selectedPilot, selectedDate, allFlights])
+
   const loadData = async () => {
     await Promise.all([
       loadDropZones(),
       loadFlights(),
-      loadCurrentFlight()
+      loadCurrentFlight(),
+      loadPilots()
     ])
     setLoading(false)
+  }
+
+  const loadPilots = async () => {
+    if (userRole === 'agent_sol') {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('role', 'pilote')
+        .order('username')
+
+      if (data) {
+        setPilots(data)
+      }
+    }
   }
 
   const loadDropZones = async () => {
@@ -67,10 +93,11 @@ export default function FlightLogModule({ userId, userRole }) {
       .select(`
         *,
         departure_dz:drop_zones!flight_logs_departure_dz_id_fkey(name),
-        arrival_dz:drop_zones!flight_logs_arrival_dz_id_fkey(name)
+        arrival_dz:drop_zones!flight_logs_arrival_dz_id_fkey(name),
+        pilot:profiles!flight_logs_pilot_id_fkey(username)
       `)
       .order('departure_time', { ascending: false })
-      .limit(10)
+      .limit(50)
 
     // Si pilote, voir uniquement ses vols
     if (userRole === 'pilote') {
@@ -80,6 +107,7 @@ export default function FlightLogModule({ userId, userRole }) {
     const { data, error } = await query
 
     if (data) {
+      setAllFlights(data)
       setFlights(data)
     } else {
       console.error('Erreur chargement vols:', error)
@@ -100,6 +128,30 @@ export default function FlightLogModule({ userId, userRole }) {
     if (data) {
       setCurrentFlight(data)
     }
+  }
+
+  const filterFlights = () => {
+    let filtered = [...allFlights]
+
+    // Filtrer par pilote (agents seulement)
+    if (userRole === 'agent_sol' && selectedPilot !== 'all') {
+      filtered = filtered.filter(f => f.pilot_id === selectedPilot)
+    }
+
+    // Filtrer par date
+    if (selectedDate) {
+      filtered = filtered.filter(f => {
+        const flightDate = new Date(f.departure_time).toISOString().split('T')[0]
+        return flightDate === selectedDate
+      })
+    }
+
+    setFlights(filtered)
+  }
+
+  const resetFilters = () => {
+    setSelectedPilot('all')
+    setSelectedDate('')
   }
 
   const handleTakeoff = async () => {
@@ -187,6 +239,16 @@ export default function FlightLogModule({ userId, userRole }) {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     return hours > 0 ? `${hours}h ${mins}min` : `${mins}min`
+  }
+
+  const getPilotInitials = (username) => {
+    if (!username) return '?'
+    return username
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2)
   }
 
   const handleEditFlight = (flight) => {
@@ -383,35 +445,161 @@ export default function FlightLogModule({ userId, userRole }) {
 
   // Interface différente pour agents au sol (stats seulement)
   if (userRole === 'agent_sol') {
+    // Calculer les statistiques
+    const calculateStats = () => {
+      const filtered = flights.filter(f => !f.in_progress && f.arrival_time)
+      
+      const totalMinutes = filtered.reduce((sum, f) => {
+        const diff = new Date(f.arrival_time) - new Date(f.departure_time)
+        return sum + Math.round(diff / 60000)
+      }, 0)
+      
+      const totalHours = Math.floor(totalMinutes / 60)
+      const remainingMins = totalMinutes % 60
+      
+      return {
+        totalFlights: filtered.length,
+        totalMinutes,
+        totalHours,
+        remainingMins,
+        formattedTime: `${totalHours}h ${remainingMins}min`
+      }
+    }
+
+    const stats = calculateStats()
+
     return (
       <div className="space-y-6">
-        <div className="text-center py-12 bg-blue-50 rounded-lg">
-          <h3 className="text-xl font-semibold mb-2">📊 Statistiques FlightLog</h3>
-          <p className="text-gray-600">Interface de statistiques en cours de développement</p>
-          <p className="text-sm text-gray-500 mt-4">
-            Vous pourrez consulter ici les récaps par pilote, par mois, par jour
-          </p>
-        </div>
+        {/* Statistiques globales */}
+        {(selectedPilot !== 'all' || selectedDate) && (
+          <Card className="border-2 border-green-200 bg-green-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                📊 Statistiques
+                {selectedPilot !== 'all' && (
+                  <span className="text-sm font-normal">
+                    - {pilots.find(p => p.id === selectedPilot)?.username}
+                  </span>
+                )}
+                {selectedDate && (
+                  <span className="text-sm font-normal">
+                    - {new Date(selectedDate).toLocaleDateString('fr-FR')}
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-lg border border-green-200">
+                  <div className="text-sm text-gray-600 mb-1">Nombre de vols</div>
+                  <div className="text-3xl font-bold text-green-600">{stats.totalFlights}</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-green-200">
+                  <div className="text-sm text-gray-600 mb-1">Temps total</div>
+                  <div className="text-2xl font-bold text-blue-600">{stats.formattedTime}</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-green-200">
+                  <div className="text-sm text-gray-600 mb-1">Heures de vol</div>
+                  <div className="text-3xl font-bold text-purple-600">{stats.totalHours}h</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-green-200">
+                  <div className="text-sm text-gray-600 mb-1">Minutes totales</div>
+                  <div className="text-3xl font-bold text-orange-600">{stats.totalMinutes}</div>
+                </div>
+              </div>
+              
+              {stats.totalFlights > 0 && (
+                <div className="mt-4 text-sm text-gray-600">
+                  💡 Moyenne par vol : {Math.round(stats.totalMinutes / stats.totalFlights)} minutes
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Filtres pour agents */}
+        <Card className="border-2 border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter size={20} className="text-blue-600" />
+              <h3 className="font-semibold text-lg">Filtres</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Pilote</label>
+                <select
+                  value={selectedPilot}
+                  onChange={(e) => setSelectedPilot(e.target.value)}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="all">Tous les pilotes</option>
+                  {pilots.map(pilot => (
+                    <option key={pilot.id} value={pilot.id}>
+                      {pilot.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Date</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full p-2 border rounded-lg"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={resetFilters}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Réinitialiser
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Historique complet pour agents */}
         <Card>
           <CardHeader>
-            <CardTitle>📋 Tous les vols enregistrés</CardTitle>
+            <CardTitle>
+              📋 Tous les vols enregistrés
+              <span className="text-sm font-normal text-gray-500 ml-3">
+                ({flights.length} vol{flights.length > 1 ? 's' : ''})
+              </span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {flights.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
-                Aucun vol enregistré
+                Aucun vol trouvé
               </div>
             ) : (
               <div className="space-y-3">
                 {flights.map(flight => (
                   <div
                     key={flight.id}
-                    className="p-4 border rounded-lg bg-white"
+                    className="p-4 border rounded-lg bg-white hover:shadow-md transition-shadow"
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          {/* Pastille pilote */}
+                          <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                              {getPilotInitials(flight.pilot?.username)}
+                            </div>
+                            {flight.pilot?.username || 'Pilote inconnu'}
+                          </div>
+                          {flight.in_progress && (
+                            <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-semibold">
+                              En cours
+                            </span>
+                          )}
+                        </div>
                         <div className="font-semibold text-lg mb-1">
                           {flight.departure_dz?.name || flight.departure_location || '📍 Départ non précisé'}
                           {flight.arrival_dz?.name ? (
@@ -437,11 +625,7 @@ export default function FlightLogModule({ userId, userRole }) {
                         </div>
                       </div>
                       <div className="text-right">
-                        {flight.in_progress ? (
-                          <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-semibold">
-                            En cours
-                          </span>
-                        ) : (
+                        {!flight.in_progress && (
                           <div className="text-lg font-bold text-green-600">
                             {formatDuration(flight.departure_time, flight.arrival_time)}
                           </div>
@@ -579,9 +763,74 @@ export default function FlightLogModule({ userId, userRole }) {
       </Card>
 
       {/* 3️⃣ HISTORIQUE DES VOLS - EN DEUXIÈME POUR MOBILE */}
+      
+      {/* Filtre par date pour pilotes */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <Filter size={20} className="text-blue-600" />
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-2">Filtrer par date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full p-2 border rounded-lg"
+              />
+            </div>
+            {selectedDate && (
+              <Button
+                onClick={resetFilters}
+                variant="outline"
+                className="mt-6"
+              >
+                Réinitialiser
+              </Button>
+            )}
+          </div>
+          
+          {/* Stats du jour si date sélectionnée */}
+          {selectedDate && flights.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-blue-200">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white p-3 rounded-lg border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Vols</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {flights.filter(f => !f.in_progress && f.arrival_time).length}
+                  </div>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Minutes</div>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {flights.filter(f => !f.in_progress && f.arrival_time).reduce((sum, f) => {
+                      const diff = new Date(f.arrival_time) - new Date(f.departure_time)
+                      return sum + Math.round(diff / 60000)
+                    }, 0)}
+                  </div>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Heures</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {Math.floor(flights.filter(f => !f.in_progress && f.arrival_time).reduce((sum, f) => {
+                      const diff = new Date(f.arrival_time) - new Date(f.departure_time)
+                      return sum + Math.round(diff / 60000)
+                    }, 0) / 60)}h
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
       <Card>
         <CardHeader>
-          <CardTitle>📋 Historique des vols (cliquez pour modifier)</CardTitle>
+          <CardTitle>
+            📋 Historique des vols (cliquez pour modifier)
+            <span className="text-sm font-normal text-gray-500 ml-3">
+              ({flights.length} vol{flights.length > 1 ? 's' : ''})
+            </span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {flights.length === 0 ? (
