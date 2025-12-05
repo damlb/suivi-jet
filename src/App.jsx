@@ -7,7 +7,7 @@ import CaisseModule from './components/CaisseModule'
 import ListeAttenteModule from './components/ListeAttenteModule'
 import FlightLogModule from './components/FlightLogModule'
 import DropZonesModule from './components/DropZonesModule'
-import ManifestModule from './components/ManifestModule'
+import ManifestModule from './components/ManifestModule.jsx'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 
