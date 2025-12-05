@@ -8,6 +8,7 @@ import ListeAttenteModule from './components/ListeAttenteModule'
 import FlightLogModule from './components/FlightLogModule'
 import DropZonesModule from './components/DropZonesModule'
 import ManifestModule from './components/ManifestModule'
+import UserManagementModule from './components/UserManagementModule'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 
@@ -16,6 +17,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [username, setUsername] = useState('')
   const [userRole, setUserRole] = useState('agent_sol') // 'agent_sol' ou 'pilote'
+  const [userPermissions, setUserPermissions] = useState({})
   const [activeModule, setActiveModule] = useState('notes')
 
   useEffect(() => {
@@ -45,13 +47,14 @@ function App() {
   const loadUserProfile = async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('username, role')
+      .select('username, role, permissions')
       .eq('id', userId)
       .single()
 
     if (data) {
       setUsername(data.username)
       setUserRole(data.role || 'agent_sol')
+      setUserPermissions(data.permissions || {})
       
       // Si pilote, le mettre par défaut sur FlightLog
       if (data.role === 'pilote') {
@@ -69,15 +72,17 @@ function App() {
     setSession(null)
     setUsername('')
     setUserRole('agent_sol')
+    setUserPermissions({})
   }
 
   // Fonction pour vérifier si un module est accessible
   const canAccessModule = (module) => {
-    if (userRole === 'agent_sol') return true // Agents ont accès à tout
+    // Les agents au sol ont accès à tout
+    if (userRole === 'agent_sol') return true
     
-    // Pilotes ont accès à FlightLog, Jet A1, DZ et PVE
+    // Pour les pilotes, vérifier les permissions JSONB
     if (userRole === 'pilote') {
-      return ['flightlog', 'jeta1', 'dropzones', 'manifest'].includes(module)
+      return userPermissions[module] === true
     }
     
     return false
@@ -116,9 +121,19 @@ function App() {
                     )}
                   </p>
                 </div>
-                <Button onClick={handleSignOut} variant="ghost">
-                  Se déconnecter
-                </Button>
+                <div className="flex gap-2">
+                  {canAccessModule('users') && (
+                    <Button 
+                      onClick={() => setActiveModule('users')}
+                      variant={activeModule === 'users' ? 'default' : 'outline'}
+                    >
+                      👤 Utilisateurs
+                    </Button>
+                  )}
+                  <Button onClick={handleSignOut} variant="ghost">
+                    Se déconnecter
+                  </Button>
+                </div>
               </div>
 
               {/* Navigation par onglets */}
@@ -265,6 +280,7 @@ function App() {
         {/* Contenu du module actif */}
         <Card>
           <CardContent className="pt-6">
+            {activeModule === 'users' && <UserManagementModule currentUserId={session.user.id} />}
             {activeModule === 'flightlog' && (
               <FlightLogModule 
                 userId={session.user.id} 
