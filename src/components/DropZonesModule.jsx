@@ -172,13 +172,7 @@ export default function DropZonesModule({ userId, userRole }) {
       italie: 'bg-red-100 text-red-700',
       sardaigne: 'bg-yellow-100 text-yellow-700'
     }
-    const labels = {
-      corse: '🇫🇷 Corse',
-      france: '🇫🇷 France',
-      italie: '🇮🇹 Italie',
-      sardaigne: '🇮🇹 Sardaigne'
-    }
-    return `${badges[region]} px-2 py-1 rounded-full text-xs font-semibold`
+    return badges[region] || 'bg-gray-100 text-gray-700'
   }
 
   const getRegionLabel = (region) => {
@@ -203,58 +197,58 @@ export default function DropZonesModule({ userId, userRole }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2 sm:space-y-4 sm:space-y-3 sm:space-y-6">
       {/* Statistiques */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-2 sm:gap-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
-          <CardContent className="pt-6">
-            <div className="text-sm text-blue-600 mb-1">Total Drop Zones</div>
-            <div className="text-3xl font-bold text-blue-900">{stats.total}</div>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-blue-600 mb-1">Total Drop Zones</div>
+            <div className="text-2xl sm:text-3xl font-bold text-blue-900">{stats.total}</div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100">
-          <CardContent className="pt-6">
-            <div className="text-sm text-green-600 mb-1">Aéroports</div>
-            <div className="text-3xl font-bold text-green-900">{stats.airports}</div>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-green-600 mb-1">Aéroports</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-900">{stats.airports}</div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100">
-          <CardContent className="pt-6">
-            <div className="text-sm text-orange-600 mb-1">Héliports</div>
-            <div className="text-3xl font-bold text-orange-900">{stats.heliports}</div>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-orange-600 mb-1">Héliports</div>
+            <div className="text-2xl sm:text-3xl font-bold text-orange-900">{stats.heliports}</div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
-          <CardContent className="pt-6">
-            <div className="text-sm text-purple-600 mb-1">Sites Custom</div>
-            <div className="text-3xl font-bold text-purple-900">{stats.custom}</div>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-purple-600 mb-1">Sites Custom</div>
+            <div className="text-2xl sm:text-3xl font-bold text-purple-900">{stats.custom}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Répartition par région */}
       <Card>
-        <CardContent className="pt-6">
-          <h4 className="font-semibold mb-3">📊 Répartition par région</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <CardContent className="pt-4 sm:pt-3 sm:pt-6">
+          <h4 className="font-semibold mb-3 text-sm sm:text-base">📊 Répartition par région</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-2 sm:gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-blue-600">{stats.corse}</div>
-              <div className="text-sm text-gray-600">🇫🇷 Corse</div>
+              <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.corse}</div>
+              <div className="text-xs sm:text-sm text-gray-600">🇫🇷 Corse</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-green-600">{stats.france}</div>
-              <div className="text-sm text-gray-600">🇫🇷 France</div>
+              <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.france}</div>
+              <div className="text-xs sm:text-sm text-gray-600">🇫🇷 France</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-red-600">{stats.italie}</div>
-              <div className="text-sm text-gray-600">🇮🇹 Italie</div>
+              <div className="text-xl sm:text-2xl font-bold text-red-600">{stats.italie}</div>
+              <div className="text-xs sm:text-sm text-gray-600">🇮🇹 Italie</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-yellow-600">{stats.sardaigne}</div>
-              <div className="text-sm text-gray-600">🇮🇹 Sardaigne</div>
+              <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.sardaigne}</div>
+              <div className="text-xs sm:text-sm text-gray-600">🇮🇹 Sardaigne</div>
             </div>
           </div>
         </CardContent>
@@ -262,8 +256,8 @@ export default function DropZonesModule({ userId, userRole }) {
 
       {/* Filtres et recherche */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-3">
+        <CardContent className="pt-4 sm:pt-3 sm:pt-6">
+          <div className="flex flex-col md:flex-row gap-2 sm:gap-3">
             {/* Recherche */}
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -271,8 +265,8 @@ export default function DropZonesModule({ userId, userRole }) {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Rechercher (nom, code OACI, code court)..."
-                className="w-full pl-10 pr-3 py-2 border rounded-lg"
+                placeholder="Rechercher..."
+                className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm"
               />
             </div>
 
@@ -280,9 +274,9 @@ export default function DropZonesModule({ userId, userRole }) {
             <select
               value={regionFilter}
               onChange={(e) => setRegionFilter(e.target.value)}
-              className="px-3 py-2 border rounded-lg"
+              className="px-3 py-2 border rounded-lg text-sm"
             >
-              <option value="all">Toutes les régions</option>
+              <option value="all">Toutes régions</option>
               <option value="corse">🇫🇷 Corse</option>
               <option value="france">🇫🇷 France</option>
               <option value="italie">🇮🇹 Italie</option>
@@ -293,18 +287,18 @@ export default function DropZonesModule({ userId, userRole }) {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 border rounded-lg"
+              className="px-3 py-2 border rounded-lg text-sm"
             >
-              <option value="all">Tous les types</option>
+              <option value="all">Tous types</option>
               <option value="airport">✈️ Aéroports</option>
               <option value="heliport">🚁 Héliports</option>
-              <option value="custom">📍 Sites Custom</option>
+              <option value="custom">📍 Custom</option>
             </select>
 
             {/* Bouton Ajouter */}
             <Button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="whitespace-nowrap"
+              className="whitespace-nowrap text-sm"
             >
               <Plus size={18} className="mr-2" />
               Ajouter DZ
@@ -316,61 +310,61 @@ export default function DropZonesModule({ userId, userRole }) {
       {/* Formulaire d'ajout/édition */}
       {showAddForm && (
         <Card className="border-2 border-blue-500">
-          <CardHeader className="bg-blue-50">
-            <CardTitle className="flex justify-between items-center">
+          <CardHeader className="bg-blue-50 p-3 sm:p-6">
+            <CardTitle className="flex justify-between items-center text-base sm:text-xl">
               <span>{editingDZ ? '✏️ Modifier Drop Zone' : '➕ Ajouter Drop Zone'}</span>
               <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
                 <X size={20} />
               </button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6">
+            <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-2 sm:gap-4">
                 {/* Nom */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Nom *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Nom *</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Ex: Ajaccio Napoléon Bonaparte"
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg text-sm"
                     required
                   />
                 </div>
 
                 {/* Code court */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Code court</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Code court</label>
                   <input
                     type="text"
                     value={formData.short_code}
                     onChange={(e) => setFormData({ ...formData, short_code: e.target.value })}
                     placeholder="Ex: AJA"
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg text-sm"
                   />
                 </div>
 
                 {/* Code OACI */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Code OACI</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Code OACI</label>
                   <input
                     type="text"
                     value={formData.oaci_code}
                     onChange={(e) => setFormData({ ...formData, oaci_code: e.target.value })}
                     placeholder="Ex: LFKJ"
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg text-sm"
                   />
                 </div>
 
                 {/* Type */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Type *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Type *</label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg text-sm"
                     required
                   >
                     <option value="custom">📍 Site Custom</option>
@@ -381,11 +375,11 @@ export default function DropZonesModule({ userId, userRole }) {
 
                 {/* Région */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Région *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Région *</label>
                   <select
                     value={formData.region}
                     onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg text-sm"
                     required
                   >
                     <option value="corse">🇫🇷 Corse</option>
@@ -397,28 +391,28 @@ export default function DropZonesModule({ userId, userRole }) {
 
                 {/* Latitude */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Latitude *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Latitude *</label>
                   <input
                     type="number"
                     step="0.000001"
                     value={formData.latitude}
                     onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
                     placeholder="Ex: 41.9231"
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg text-sm"
                     required
                   />
                 </div>
 
                 {/* Longitude */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Longitude *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Longitude *</label>
                   <input
                     type="number"
                     step="0.000001"
                     value={formData.longitude}
                     onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
                     placeholder="Ex: 8.8028"
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg text-sm"
                     required
                   />
                 </div>
@@ -426,22 +420,22 @@ export default function DropZonesModule({ userId, userRole }) {
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium mb-1">Notes</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Informations complémentaires..."
-                  className="w-full p-2 border rounded-lg"
+                  className="w-full p-2 border rounded-lg text-sm"
                   rows="2"
                 />
               </div>
 
               {/* Boutons */}
               <div className="flex gap-2">
-                <Button type="submit" className="bg-green-500 hover:bg-green-600">
+                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-sm">
                   {editingDZ ? '✅ Modifier' : '➕ Ajouter'}
                 </Button>
-                <Button type="button" onClick={resetForm} variant="ghost">
+                <Button type="button" onClick={resetForm} variant="ghost" className="text-sm">
                   Annuler
                 </Button>
               </div>
@@ -452,47 +446,47 @@ export default function DropZonesModule({ userId, userRole }) {
 
       {/* Tableau des Drop Zones */}
       <Card>
-        <CardHeader>
-          <CardTitle>
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-xl">
             📍 Drop Zones ({filteredDZ.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-6">
           {filteredDZ.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <MapPin size={48} className="mx-auto mb-3 opacity-50" />
-              <p>Aucune Drop Zone trouvée</p>
+              <p className="text-sm">Aucune Drop Zone trouvée</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+              <table className="w-full text-xs sm:text-sm">
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="p-2 text-left">Type</th>
                     <th className="p-2 text-left">Nom</th>
-                    <th className="p-2 text-left">Codes</th>
+                    <th className="p-2 text-left hidden sm:table-cell">Codes</th>
                     <th className="p-2 text-left">Région</th>
-                    <th className="p-2 text-left">Coordonnées</th>
+                    <th className="p-2 text-left hidden md:table-cell">Coordonnées</th>
                     <th className="p-2 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredDZ.map(dz => (
                     <tr key={dz.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2 text-center text-xl">{getTypeIcon(dz.type)}</td>
-                      <td className="p-2 font-semibold">{dz.name}</td>
-                      <td className="p-2">
+                      <td className="p-2 text-center text-lg sm:text-xl">{getTypeIcon(dz.type)}</td>
+                      <td className="p-2 font-semibold text-xs sm:text-sm">{dz.name}</td>
+                      <td className="p-2 hidden sm:table-cell">
                         <div className="text-xs">
                           {dz.short_code && <div className="font-mono text-blue-600">{dz.short_code}</div>}
                           {dz.oaci_code && <div className="font-mono text-gray-500">{dz.oaci_code}</div>}
                         </div>
                       </td>
                       <td className="p-2">
-                        <span className={getRegionBadge(dz.region)}>
+                        <span className={`${getRegionBadge(dz.region)} px-2 py-1 rounded-full text-xs font-semibold`}>
                           {getRegionLabel(dz.region)}
                         </span>
                       </td>
-                      <td className="p-2 text-xs font-mono text-gray-600">
+                      <td className="p-2 text-xs font-mono text-gray-600 hidden md:table-cell">
                         {dz.latitude.toFixed(6)}, {dz.longitude.toFixed(6)}
                       </td>
                       <td className="p-2">

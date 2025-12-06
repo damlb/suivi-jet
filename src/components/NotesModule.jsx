@@ -24,7 +24,6 @@ export default function NotesModule({ currentUser }) {
       .order('date', { ascending: false })
 
     if (data) {
-      // Stocker toutes les notes
       setNotes(data)
     }
     setLoading(false)
@@ -32,8 +31,6 @@ export default function NotesModule({ currentUser }) {
 
   const addNote = async () => {
     if (newNote.trim()) {
-      console.log('🔍 currentUser:', currentUser) // LOG DEBUG
-      
       const { data, error } = await supabase
         .from('notes')
         .insert([
@@ -47,8 +44,6 @@ export default function NotesModule({ currentUser }) {
           }
         ])
         .select()
-
-      console.log('✅ Note créée:', data) // LOG DEBUG
 
       if (data) {
         setNotes([data[0], ...notes])
@@ -203,11 +198,11 @@ export default function NotesModule({ currentUser }) {
   )
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2 border-b-2 border-gray-200">
+    <div className="space-y-2 sm:space-y-4">
+      <div className="flex gap-2 border-b-2 border-gray-200 overflow-x-auto">
         <button
           onClick={() => setNotesView('encours')}
-          className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm whitespace-nowrap ${
             notesView === 'encours'
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -220,7 +215,7 @@ export default function NotesModule({ currentUser }) {
         </button>
         <button
           onClick={() => setNotesView('archivees')}
-          className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+          className={`px-4 sm:px-6 py-2 sm:py-3 font-semibold transition-all border-b-4 text-sm whitespace-nowrap ${
             notesView === 'archivees'
               ? 'border-gray-500 text-gray-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -233,12 +228,12 @@ export default function NotesModule({ currentUser }) {
         </button>
       </div>
 
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <h3 className="text-lg sm:text-xl font-semibold">
           {notesView === 'encours' ? 'Notes en cours' : 'Notes archivées'}
         </h3>
         {notesView === 'encours' && (
-          <Button onClick={() => setShowAddNote(!showAddNote)}>
+          <Button onClick={() => setShowAddNote(!showAddNote)} className="w-full sm:w-auto text-sm">
             + Nouvelle note
           </Button>
         )}
@@ -246,21 +241,21 @@ export default function NotesModule({ currentUser }) {
 
       {showAddNote && (
         <Card className="border-2 border-blue-200">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6">
             <div className="space-y-3">
               <textarea
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
                 placeholder="Décrivez la tâche ou l'information à partager..."
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full p-2 sm:p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 rows="3"
               />
               <div className="flex gap-2">
-                <Button onClick={addNote}>Ajouter</Button>
+                <Button onClick={addNote} className="text-sm">Ajouter</Button>
                 <Button variant="ghost" onClick={() => {
                   setShowAddNote(false)
                   setNewNote('')
-                }}>
+                }} className="text-sm">
                   Annuler
                 </Button>
               </div>
@@ -272,7 +267,7 @@ export default function NotesModule({ currentUser }) {
       <div className="space-y-3">
         {displayedNotes.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
-            <p>
+            <p className="text-sm">
               {notesView === 'encours' 
                 ? 'Aucune note en cours' 
                 : 'Aucune note archivée'}
@@ -286,35 +281,35 @@ export default function NotesModule({ currentUser }) {
                 note.cochee ? 'border-green-500 bg-green-50' : 'border-blue-500'
               }`}
             >
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
                 <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
                     checked={note.cochee}
                     onChange={() => toggleNote(note.id, note.cochee)}
-                    className="mt-1 w-5 h-5 rounded border-2 cursor-pointer"
+                    className="mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded border-2 cursor-pointer flex-shrink-0"
                   />
                   
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     {editingNoteId === note.id ? (
                       <div className="space-y-2">
                         <textarea
                           value={editingText}
                           onChange={(e) => setEditingText(e.target.value)}
-                          className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                           rows="3"
                           autoFocus
                         />
                         <div className="flex gap-2">
                           <button
                             onClick={() => saveEdit(note.id)}
-                            className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                            className="px-3 py-1 bg-green-500 text-white rounded text-xs sm:text-sm hover:bg-green-600"
                           >
                             Sauvegarder
                           </button>
                           <button
                             onClick={cancelEdit}
-                            className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+                            className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs sm:text-sm hover:bg-gray-400"
                           >
                             Annuler
                           </button>
@@ -322,7 +317,7 @@ export default function NotesModule({ currentUser }) {
                       </div>
                     ) : (
                       <p 
-                        className={`cursor-pointer ${note.cochee ? 'line-through text-gray-400' : 'text-gray-800'}`}
+                        className={`cursor-pointer text-sm sm:text-base break-words ${note.cochee ? 'line-through text-gray-400' : 'text-gray-800'}`}
                         onClick={() => !note.cochee && startEdit(note)}
                         title="Cliquer pour modifier"
                       >
@@ -330,7 +325,7 @@ export default function NotesModule({ currentUser }) {
                       </p>
                     )}
                     
-                    <div className="flex flex-wrap gap-3 mt-2 text-sm items-center">
+                    <div className="flex flex-wrap gap-2 sm:gap-3 mt-2 text-xs sm:text-sm items-center">
                       <span className="text-gray-500">
                         {new Date(note.date).toLocaleDateString('fr-FR')} à{' '}
                         {new Date(note.date).toLocaleTimeString('fr-FR', {
@@ -339,22 +334,19 @@ export default function NotesModule({ currentUser }) {
                         })}
                       </span>
                       
-                      {/* Pastille créateur - toujours visible si pas cochée */}
-                      {(() => {
-                        console.log(`Note ${note.id}: responsable="${note.responsable}", cochee=${note.cochee}`)
-                        return note.responsable && !note.cochee ? (
-                          <span 
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white text-xs font-bold shadow-sm"
-                            title={`Créé par ${note.responsable}`}
-                          >
-                            {note.responsable.charAt(0).toUpperCase()}
-                          </span>
-                        ) : null
-                      })()}
+                      {/* Pastille créateur */}
+                      {note.responsable && !note.cochee && (
+                        <span 
+                          className="inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-500 text-white text-xs font-bold shadow-sm flex-shrink-0"
+                          title={`Créé par ${note.responsable}`}
+                        >
+                          {note.responsable.charAt(0).toUpperCase()}
+                        </span>
+                      )}
                       
                       {/* Prénom complet si cochée */}
                       {note.cochee && note.coche_par && (
-                        <span className="text-green-600 font-medium text-sm">
+                        <span className="text-green-600 font-medium text-xs sm:text-sm">
                           ✓ Fait par {note.coche_par} le{' '}
                           {new Date(note.date_coche).toLocaleDateString('fr-FR')}
                         </span>
@@ -370,11 +362,11 @@ export default function NotesModule({ currentUser }) {
                             href={file.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                            className="flex items-center gap-2 text-xs sm:text-sm text-blue-600 hover:text-blue-800"
                           >
                             📎 {file.name}
                             {file.type.startsWith('image/') && (
-                              <img src={file.url} alt={file.name} className="h-16 rounded border" />
+                              <img src={file.url} alt={file.name} className="h-12 sm:h-16 rounded border" />
                             )}
                           </a>
                         ))}
@@ -382,10 +374,10 @@ export default function NotesModule({ currentUser }) {
                     )}
                   </div>
                   
-                  <div className="flex gap-2 flex-shrink-0 items-start">
+                  <div className="flex gap-1 sm:gap-2 flex-shrink-0 items-start">
                     {/* Bouton d'ajout de fichier */}
                     {!note.cochee && (
-                      <label className="cursor-pointer text-gray-500 hover:text-gray-700 px-2 py-1" title="Ajouter une pièce jointe">
+                      <label className="cursor-pointer text-gray-500 hover:text-gray-700 px-1 sm:px-2 py-1" title="Ajouter une pièce jointe">
                         <input
                           type="file"
                           accept="image/*,.pdf,.doc,.docx"
@@ -393,32 +385,32 @@ export default function NotesModule({ currentUser }) {
                           onChange={(e) => handleFileUpload(note.id, e)}
                           className="hidden"
                         />
-                        📎
+                        <span className="text-lg sm:text-xl">📎</span>
                       </label>
                     )}
                     {notesView === 'encours' ? (
                       <button
                         onClick={() => archiveNote(note.id)}
-                        className="text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+                        className="text-gray-500 hover:text-gray-700 px-1 sm:px-2 py-1 rounded hover:bg-gray-100 transition-colors"
                         title="Archiver"
                       >
-                        📦
+                        <span className="text-lg sm:text-xl">📦</span>
                       </button>
                     ) : (
                       <button
                         onClick={() => unarchiveNote(note.id)}
-                        className="text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                        className="text-blue-500 hover:text-blue-700 px-1 sm:px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                         title="Désarchiver"
                       >
-                        ↩️
+                        <span className="text-lg sm:text-xl">↩️</span>
                       </button>
                     )}
                     <button
                       onClick={() => deleteNote(note.id)}
-                      className="text-red-500 hover:text-red-700 px-2 py-1"
+                      className="text-red-500 hover:text-red-700 px-1 sm:px-2 py-1"
                       title="Supprimer"
                     >
-                      🗑️
+                      <span className="text-lg sm:text-xl">🗑️</span>
                     </button>
                   </div>
                 </div>

@@ -176,7 +176,7 @@ export default function JetA1Module({ userRole, userId }) {
   // ========== INTERFACE PILOTE ==========
   if (userRole === 'pilote') {
     return (
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-6">
         <div className="text-center">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">⛽ Suivi Jet A1 - Mode Pilote</h2>
           <p className="text-sm sm:text-base text-gray-600">Interface simplifiée pour enregistrer vos prises de carburant</p>
@@ -184,7 +184,7 @@ export default function JetA1Module({ userRole, userId }) {
 
         {!livraisonActive ? (
           <Card className="bg-gray-50 border-2 border-gray-300">
-            <CardContent className="pt-6 text-center">
+            <CardContent className="pt-3 sm:pt-6 text-center">
               <Fuel size={48} className="mx-auto mb-3 text-gray-400" />
               <p className="text-gray-600 font-semibold">Aucune livraison active</p>
               <p className="text-sm text-gray-500 mt-2">
@@ -427,7 +427,7 @@ export default function JetA1Module({ userRole, userId }) {
 
       {showAddLivraison && (
         <Card className="border-2 border-orange-200">
-          <CardContent className="pt-6">
+          <CardContent className="pt-3 sm:pt-6">
             <h4 className="font-semibold mb-3">Nouvelle livraison Jet A1</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
@@ -606,7 +606,7 @@ export default function JetA1Module({ userRole, userId }) {
 
               {/* Tableau des prises */}
               <Card>
-                <CardContent className="pt-6">
+                <CardContent className="pt-3 sm:pt-6">
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="text-base sm:text-lg font-bold">
                       {jetA1View === 'externe' ? 'Ventes Externes' : 'Prises Internes'}

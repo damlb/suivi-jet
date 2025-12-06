@@ -2,20 +2,24 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { UserPlus, Edit2, Power, RefreshCw, Settings, X } from 'lucide-react'
+import { Users, UserPlus, Shield, Plane, Edit2, Trash2, Save, X } from 'lucide-react'
 
-export default function UserManagementModule({ currentUserId }) {
+export default function UserManagementModule() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showCreateUser, setShowCreateUser] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)
-  const [editingPermissions, setEditingPermissions] = useState(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingUserId, setEditingUserId] = useState(null)
   
-  const [newUser, setNewUser] = useState({
+  const [formData, setFormData] = useState({
     email: '',
     password: '',
-    username: '',
+    prenom: '',
     role: 'pilote'
+  })
+
+  const [editData, setEditData] = useState({
+    prenom: '',
+    role: ''
   })
 
   useEffect(() => {
@@ -31,467 +35,435 @@ export default function UserManagementModule({ currentUserId }) {
     if (data) {
       setUsers(data)
     } else {
-      console.error('Erreur chargement users:', error)
+      console.error('Erreur chargement utilisateurs:', error)
     }
     setLoading(false)
   }
 
-  const createUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.username) {
-      alert('⚠️ Veuillez remplir tous les champs')
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      password: '',
+      prenom: '',
+      role: 'pilote'
+    })
+    setShowAddForm(false)
+  }
+
+  const handleAddUser = async (e) => {
+    e.preventDefault()
+
+    if (!formData.email || !formData.password || !formData.prenom) {
+      alert('⚠️ Veuillez remplir tous les champs obligatoires')
       return
     }
 
-    if (newUser.password.length < 6) {
+    if (formData.password.length < 6) {
       alert('⚠️ Le mot de passe doit contenir au moins 6 caractères')
       return
     }
 
-    // Permissions par défaut selon le rôle
-    const defaultPermissions = newUser.role === 'agent_sol' 
-      ? { flightlog: true, jeta1: true, notes: true, liste: true, caisse: true, dropzones: true, pve: true, users: true }
-      : { flightlog: true, jeta1: true, notes: false, liste: false, caisse: false, dropzones: true, pve: true, users: false }
-
-    // Créer l'utilisateur dans Supabase Auth
+    // Créer l'utilisateur avec Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: newUser.email,
-      password: newUser.password,
+      email: formData.email,
+      password: formData.password,
       options: {
         data: {
-          username: newUser.username,
-          role: newUser.role
+          prenom: formData.prenom,
+          role: formData.role
         }
       }
     })
 
     if (authError) {
-      alert(`❌ Erreur : ${authError.message}`)
+      console.error('Erreur création utilisateur:', authError)
+      alert(`❌ Erreur: ${authError.message}`)
       return
     }
 
+    // Mettre à jour le profil avec le rôle correct
     if (authData.user) {
-      // Attendre un peu que le trigger crée le profil
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const permissions = formData.role === 'agent_sol' 
+        ? ['notes', 'jet_a1', 'caisse', 'liste_attente', 'flight_log', 'drop_zones', 'users_management', 'manifest']
+        : ['flight_log', 'manifest']
 
-      // Mettre à jour le profil avec le bon username, rôle et permissions
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          username: newUser.username,
-          role: newUser.role,
-          is_active: true,
-          permissions: defaultPermissions
+        .update({
+          prenom: formData.prenom,
+          role: formData.role,
+          permissions: permissions
         })
         .eq('id', authData.user.id)
 
-      if (!profileError) {
-        alert(`✅ Utilisateur créé avec succès !\n\nEmail : ${newUser.email}\nMot de passe : ${newUser.password}\n\n⚠️ L'utilisateur doit confirmer son email.`)
-        setNewUser({ email: '', password: '', username: '', role: 'pilote' })
-        setShowCreateUser(false)
-        loadUsers()
-      } else {
-        console.error('Erreur update profil:', profileError)
-        alert(`❌ Erreur profil : ${profileError.message}`)
+      if (profileError) {
+        console.error('Erreur mise à jour profil:', profileError)
       }
     }
+
+    alert('✅ Utilisateur créé avec succès')
+    loadUsers()
+    resetForm()
   }
 
-  const updateUserRole = async (userId, newRole) => {
-    // SUPPRIMÉ : Plus de protection contre downgrade agent_sol -> pilote
+  const startEdit = (user) => {
+    setEditingUserId(user.id)
+    setEditData({
+      prenom: user.prenom || '',
+      role: user.role || 'pilote'
+    })
+  }
 
-    // Changer les permissions selon le nouveau rôle
-    const newPermissions = newRole === 'agent_sol'
-      ? { flightlog: true, jeta1: true, notes: true, liste: true, caisse: true, dropzones: true, pve: true, users: true }
-      : { flightlog: true, jeta1: true, notes: false, liste: false, caisse: false, dropzones: true, pve: true, users: false }
+  const cancelEdit = () => {
+    setEditingUserId(null)
+    setEditData({ prenom: '', role: '' })
+  }
+
+  const saveEdit = async (userId) => {
+    const permissions = editData.role === 'agent_sol' 
+      ? ['notes', 'jet_a1', 'caisse', 'liste_attente', 'flight_log', 'drop_zones', 'users_management', 'manifest']
+      : ['flight_log', 'manifest']
 
     const { error } = await supabase
       .from('profiles')
-      .update({ 
-        role: newRole,
-        permissions: newPermissions
+      .update({
+        prenom: editData.prenom,
+        role: editData.role,
+        permissions: permissions
       })
       .eq('id', userId)
 
     if (!error) {
-      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole, permissions: newPermissions } : u))
-      alert(`✅ Rôle modifié avec succès`)
+      alert('✅ Utilisateur modifié')
+      loadUsers()
+      cancelEdit()
     } else {
-      alert(`❌ Erreur : ${error.message}`)
+      console.error('Erreur modification:', error)
+      alert('❌ Erreur lors de la modification')
     }
   }
 
-  const updatePermissions = async (userId, newPermissions) => {
+  const deleteUser = async (userId, prenom) => {
+    if (!confirm(`Supprimer l'utilisateur ${prenom} ?\n\nCette action est irréversible.`)) {
+      return
+    }
+
+    // Note: La suppression complète d'un utilisateur Auth nécessite des privilèges admin
+    // Pour l'instant, on désactive juste le profil
     const { error } = await supabase
       .from('profiles')
-      .update({ permissions: newPermissions })
+      .update({ is_active: false })
       .eq('id', userId)
 
     if (!error) {
-      setUsers(users.map(u => u.id === userId ? { ...u, permissions: newPermissions } : u))
-      setEditingPermissions(null)
-      alert(`✅ Permissions mises à jour`)
+      alert('✅ Utilisateur désactivé')
+      loadUsers()
     } else {
-      alert(`❌ Erreur : ${error.message}`)
+      console.error('Erreur suppression:', error)
+      alert('❌ Erreur lors de la suppression')
     }
   }
 
-  const toggleUserStatus = async (userId, currentStatus) => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_active: !currentStatus })
-      .eq('id', userId)
-
-    if (!error) {
-      setUsers(users.map(u => u.id === userId ? { ...u, is_active: !currentStatus } : u))
-      alert(`✅ Statut modifié`)
-    } else {
-      alert(`❌ Erreur : ${error.message}`)
-    }
+  // Statistiques
+  const stats = {
+    total: users.filter(u => u.is_active !== false).length,
+    agents: users.filter(u => u.role === 'agent_sol' && u.is_active !== false).length,
+    pilotes: users.filter(u => u.role === 'pilote' && u.is_active !== false).length,
+    inactifs: users.filter(u => u.is_active === false).length
   }
 
-  const resetPassword = async (userEmail) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
-      redirectTo: window.location.origin
-    })
-
-    if (!error) {
-      alert(`✅ Email de réinitialisation envoyé à ${userEmail}`)
-    } else {
-      alert(`❌ Erreur : ${error.message}`)
+  // Badge rôle
+  const getRoleBadge = (role) => {
+    if (role === 'agent_sol') {
+      return { color: 'bg-blue-100 text-blue-700', icon: <Shield size={14} />, label: 'Agent Sol' }
     }
+    return { color: 'bg-green-100 text-green-700', icon: <Plane size={14} />, label: 'Pilote' }
   }
 
-  const openPermissionsModal = (user) => {
-    setEditingPermissions({
-      userId: user.id,
-      permissions: user.permissions || { flightlog: true, jeta1: false, notes: false, liste: false, caisse: false, dropzones: true, pve: true, users: false }
-    })
+  if (loading) {
+    return <div className="text-center py-8">Chargement...</div>
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">👥 Gestion des Utilisateurs</h2>
-        <Button
-          onClick={() => setShowCreateUser(!showCreateUser)}
-          className="flex items-center gap-2"
-        >
-          <UserPlus size={18} />
-          Créer un utilisateur
+    <div className="space-y-2 sm:space-y-4 sm:space-y-3 sm:space-y-6">
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-2 sm:gap-4">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-purple-600 mb-1">Total Actifs</div>
+            <div className="text-2xl sm:text-3xl font-bold text-purple-900">{stats.total}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-blue-600 mb-1">Agents Sol</div>
+            <div className="text-2xl sm:text-3xl font-bold text-blue-900">{stats.agents}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-green-100">
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-green-600 mb-1">Pilotes</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-900">{stats.pilotes}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-gray-50 to-gray-100">
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-gray-600 mb-1">Inactifs</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.inactifs}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* En-tête */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <h3 className="text-lg sm:text-xl font-semibold">
+          👥 Gestion des utilisateurs ({stats.total})
+        </h3>
+        <Button onClick={() => setShowAddForm(!showAddForm)} className="w-full sm:w-auto text-sm">
+          <UserPlus size={18} className="mr-2" />
+          Nouvel utilisateur
         </Button>
       </div>
 
-      {/* Formulaire création */}
-      {showCreateUser && (
-        <Card className="border-2 border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <h4 className="font-semibold text-lg mb-4">➕ Nouvel utilisateur</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  placeholder="pilote@example.com"
-                  className="w-full p-2 border rounded-lg"
-                />
+      {/* Formulaire d'ajout */}
+      {showAddForm && (
+        <Card className="border-2 border-blue-500">
+          <CardHeader className="bg-blue-50 p-3 sm:p-6">
+            <CardTitle className="flex justify-between items-center text-base sm:text-xl">
+              <span>➕ Créer un nouvel utilisateur</span>
+              <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
+                <X size={20} />
+              </button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6">
+            <form onSubmit={handleAddUser} className="space-y-2 sm:space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-2 sm:gap-4">
+                {/* Email */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Email *</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="exemple@email.com"
+                    className="w-full p-2 border rounded-lg text-sm"
+                    required
+                  />
+                </div>
+
+                {/* Mot de passe */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Mot de passe *</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Min. 6 caractères"
+                    className="w-full p-2 border rounded-lg text-sm"
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                {/* Prénom */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Prénom *</label>
+                  <input
+                    type="text"
+                    value={formData.prenom}
+                    onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                    placeholder="Prénom"
+                    className="w-full p-2 border rounded-lg text-sm"
+                    required
+                  />
+                </div>
+
+                {/* Rôle */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Rôle *</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                    required
+                  >
+                    <option value="pilote">🚁 Pilote (accès limité)</option>
+                    <option value="agent_sol">🛡️ Agent Sol (accès complet)</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Nom d'utilisateur *</label>
-                <input
-                  type="text"
-                  value={newUser.username}
-                  onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                  placeholder="Jean Dupont"
-                  className="w-full p-2 border rounded-lg"
-                />
+
+              {/* Info permissions */}
+              <div className="bg-blue-50 p-3 rounded-lg text-xs sm:text-sm">
+                <p className="font-semibold mb-1">Permissions attribuées :</p>
+                {formData.role === 'agent_sol' ? (
+                  <ul className="list-disc list-inside text-blue-700">
+                    <li>Accès complet à tous les modules</li>
+                    <li>Gestion des utilisateurs</li>
+                    <li>Modification et suppression</li>
+                  </ul>
+                ) : (
+                  <ul className="list-disc list-inside text-green-700">
+                    <li>FlightLog (décollages/atterrissages)</li>
+                    <li>PVE/Manifest (checklist pré-vol)</li>
+                    <li>Lecture seule sur les autres modules</li>
+                  </ul>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Mot de passe * (min 6 caractères)</label>
-                <input
-                  type="text"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  placeholder="mot_de_passe_temporaire"
-                  className="w-full p-2 border rounded-lg"
-                />
+
+              {/* Boutons */}
+              <div className="flex gap-2">
+                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-sm">
+                  ✅ Créer
+                </Button>
+                <Button type="button" onClick={resetForm} variant="ghost" className="text-sm">
+                  Annuler
+                </Button>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Rôle *</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full p-2 border rounded-lg"
-                >
-                  <option value="pilote">Pilote</option>
-                  <option value="agent_sol">Agent au sol</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button onClick={createUser}>✅ Créer</Button>
-              <Button variant="ghost" onClick={() => {
-                setShowCreateUser(false)
-                setNewUser({ email: '', password: '', username: '', role: 'pilote' })
-              }}>
-                Annuler
-              </Button>
-            </div>
-            <p className="text-xs text-gray-500 mt-3">
-              ℹ️ L'utilisateur recevra un email de confirmation. Communiquez-lui le mot de passe temporaire.
-            </p>
+            </form>
           </CardContent>
         </Card>
       )}
 
-      {/* Tableau utilisateurs */}
+      {/* Liste des utilisateurs */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-3 text-left">Statut</th>
-                  <th className="p-3 text-left">Email</th>
-                  <th className="p-3 text-left">Nom</th>
-                  <th className="p-3 text-left">Rôle</th>
-                  <th className="p-3 text-left">Créé le</th>
-                  <th className="p-3 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" className="text-center py-8 text-gray-400">
-                      Chargement...
-                    </td>
-                  </tr>
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="text-center py-8 text-gray-400">
-                      Aucun utilisateur
-                    </td>
-                  </tr>
-                ) : (
-                  users.map(user => (
-                    <tr key={user.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          user.is_active 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                          {user.is_active ? '🟢 Actif' : '🔴 Inactif'}
-                        </span>
-                      </td>
-                      <td className="p-3 font-mono text-xs">{user.email}</td>
-                      <td className="p-3 font-semibold">{user.username}</td>
-                      <td className="p-3">
-                        {editingUser === user.id ? (
-                          <select
-                            value={user.role}
-                            onChange={(e) => {
-                              updateUserRole(user.id, e.target.value)
-                              setEditingUser(null)
-                            }}
-                            className="p-1 border rounded text-sm"
-                            autoFocus
-                            onBlur={() => setEditingUser(null)}
-                          >
-                            <option value="pilote">Pilote</option>
-                            <option value="agent_sol">Agent au sol</option>
-                          </select>
-                        ) : (
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            user.role === 'pilote' 
-                              ? 'bg-blue-100 text-blue-700' 
-                              : 'bg-purple-100 text-purple-700'
-                          }`}>
-                            {user.role === 'pilote' ? '✈️ Pilote' : '🛠️ Agent'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-600">
-                        {new Date(user.created_at).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => setEditingUser(user.id)}
-                            className="p-2 hover:bg-blue-50 rounded transition-colors"
-                            title="Modifier le rôle"
-                          >
-                            <Edit2 size={16} className="text-blue-600" />
-                          </button>
-                          {user.role === 'pilote' && (
-                            <button
-                              onClick={() => openPermissionsModal(user)}
-                              className="p-2 hover:bg-purple-50 rounded transition-colors"
-                              title="Gérer les permissions"
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-xl">📋 Utilisateurs</CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 sm:p-6">
+          <div className="space-y-3">
+            {users.filter(u => u.is_active !== false).length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <Users size={48} className="mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Aucun utilisateur actif</p>
+              </div>
+            ) : (
+              users.filter(u => u.is_active !== false).map(user => (
+                <Card key={user.id} className="border hover:shadow-md transition-shadow">
+                  <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+                    {editingUserId === user.id ? (
+                      // Mode édition
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium mb-1">Prénom</label>
+                            <input
+                              type="text"
+                              value={editData.prenom}
+                              onChange={(e) => setEditData({ ...editData, prenom: e.target.value })}
+                              className="w-full p-2 border rounded text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium mb-1">Rôle</label>
+                            <select
+                              value={editData.role}
+                              onChange={(e) => setEditData({ ...editData, role: e.target.value })}
+                              className="w-full p-2 border rounded text-sm"
                             >
-                              <Settings size={16} className="text-purple-600" />
-                            </button>
-                          )}
+                              <option value="pilote">🚁 Pilote</option>
+                              <option value="agent_sol">🛡️ Agent Sol</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => toggleUserStatus(user.id, user.is_active)}
-                            className="p-2 hover:bg-gray-100 rounded transition-colors"
-                            title={user.is_active ? "Désactiver" : "Activer"}
+                            onClick={() => saveEdit(user.id)}
+                            className="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 flex items-center gap-1"
                           >
-                            <Power size={16} className={user.is_active ? 'text-red-600' : 'text-green-600'} />
+                            <Save size={14} />
+                            Sauvegarder
                           </button>
                           <button
-                            onClick={() => resetPassword(user.email)}
-                            className="p-2 hover:bg-orange-50 rounded transition-colors"
-                            title="Réinitialiser le mot de passe"
+                            onClick={cancelEdit}
+                            className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 flex items-center gap-1"
                           >
-                            <RefreshCw size={16} className="text-orange-600" />
+                            <X size={14} />
+                            Annuler
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    ) : (
+                      // Mode affichage
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-bold text-base">{user.prenom || 'Sans nom'}</h4>
+                            <span className={`${getRoleBadge(user.role).color} px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1`}>
+                              {getRoleBadge(user.role).icon}
+                              {getRoleBadge(user.role).label}
+                            </span>
+                          </div>
+                          
+                          <div className="text-xs sm:text-sm text-gray-600">
+                            📧 {user.email || 'Email non renseigné'}
+                          </div>
+                          
+                          {user.permissions && user.permissions.length > 0 && (
+                            <div className="text-xs text-gray-500">
+                              <span className="font-semibold">Modules autorisés:</span> {user.permissions.join(', ')}
+                            </div>
+                          )}
+                          
+                          <div className="text-xs text-gray-400">
+                            Créé le {new Date(user.created_at).toLocaleDateString('fr-FR')}
+                          </div>
+                        </div>
 
-          {/* Légende */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h5 className="font-semibold mb-2">📖 Légende des actions :</h5>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <Edit2 size={14} className="text-blue-600" />
-                <span>Modifier le rôle</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Settings size={14} className="text-purple-600" />
-                <span>Permissions (pilotes)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Power size={14} className="text-red-600" />
-                <span>Activer / Désactiver</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <RefreshCw size={14} className="text-orange-600" />
-                <span>Réinitialiser mot de passe</span>
-              </div>
-            </div>
+                        <div className="flex sm:flex-col gap-2">
+                          <button
+                            onClick={() => startEdit(user)}
+                            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs flex items-center gap-1 whitespace-nowrap"
+                          >
+                            <Edit2 size={14} />
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => deleteUser(user.id, user.prenom)}
+                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs flex items-center gap-1 whitespace-nowrap"
+                          >
+                            <Trash2 size={14} />
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="text-sm text-blue-600 mb-1">Total utilisateurs</div>
-            <div className="text-3xl font-bold text-blue-900">{users.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-purple-50">
-          <CardContent className="pt-6">
-            <div className="text-sm text-purple-600 mb-1">Pilotes</div>
-            <div className="text-3xl font-bold text-purple-900">
-              {users.filter(u => u.role === 'pilote').length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-green-50">
-          <CardContent className="pt-6">
-            <div className="text-sm text-green-600 mb-1">Comptes actifs</div>
-            <div className="text-3xl font-bold text-green-900">
-              {users.filter(u => u.is_active).length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Modal Permissions */}
-      {editingPermissions && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setEditingPermissions(null)}
-        >
-          <Card 
-            className="w-full max-w-md shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <CardHeader className="border-b">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-xl">⚙️ Permissions</CardTitle>
-                <button
-                  onClick={() => setEditingPermissions(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                {/* FlightLog - toujours actif */}
-                <div className="flex items-center justify-between p-3 bg-gray-100 rounded-lg opacity-50">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={true}
-                      disabled
-                      className="w-5 h-5"
-                    />
-                    <span className="font-medium">✈️ FlightLog</span>
+      {/* Utilisateurs inactifs */}
+      {stats.inactifs > 0 && (
+        <Card className="border-dashed">
+          <CardHeader className="p-3 sm:p-6 bg-gray-50">
+            <CardTitle className="text-base sm:text-xl text-gray-600">
+              🗂️ Utilisateurs inactifs ({stats.inactifs})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6">
+            <div className="space-y-2">
+              {users.filter(u => u.is_active === false).map(user => (
+                <div key={user.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                  <div>
+                    <span className="font-semibold text-gray-500">{user.prenom || 'Sans nom'}</span>
+                    <span className="text-gray-400 ml-2">({user.email})</span>
                   </div>
-                  <span className="text-xs text-gray-500">Toujours actif</span>
+                  <span className="text-xs text-gray-400">
+                    {getRoleBadge(user.role).label}
+                  </span>
                 </div>
-
-                {/* Autres modules */}
-                {[
-                  { key: 'jeta1', label: '⛽ Jet A1' },
-                  { key: 'dropzones', label: '📍 Drop Zones' },
-                  { key: 'pve', label: '📄 PVE' },
-                  { key: 'notes', label: '📋 Notes' },
-                  { key: 'liste', label: '🚁 Liste' },
-                  { key: 'caisse', label: '💳 Caisse' },
-                  { key: 'users', label: '👤 Utilisateurs' }
-                ].map(module => (
-                  <div key={module.key} className="flex items-center justify-between p-3 bg-white border-2 rounded-lg hover:border-gray-300 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={editingPermissions.permissions[module.key] || false}
-                        onChange={(e) => setEditingPermissions({
-                          ...editingPermissions,
-                          permissions: {
-                            ...editingPermissions.permissions,
-                            [module.key]: e.target.checked
-                          }
-                        })}
-                        className="w-5 h-5 cursor-pointer"
-                      />
-                      <span className="font-medium">{module.label}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2 mt-6">
-                <Button
-                  onClick={() => updatePermissions(editingPermissions.userId, editingPermissions.permissions)}
-                  className="flex-1"
-                >
-                  ✅ Enregistrer
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setEditingPermissions(null)}
-                  className="flex-1"
-                >
-                  Annuler
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

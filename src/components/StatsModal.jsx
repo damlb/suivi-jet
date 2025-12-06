@@ -49,7 +49,7 @@ export default function StatsModal({
           </div>
 
           {/* Contenu modale */}
-          <div className="p-4 sm:p-6 space-y-6">
+          <div className="p-3 sm:p-6 space-y-3 sm:space-y-6">
             {(() => {
               // Filtrer les vols selon la période et le pilote
               let filteredFlights = allFlights.filter(f => !f.in_progress && f.arrival_time)
@@ -86,7 +86,7 @@ export default function StatsModal({
                 <>
                   {/* Filtres */}
                   <Card className="border-2 border-blue-200 bg-blue-50">
-                    <CardContent className="pt-6">
+                    <CardContent className="pt-3 sm:pt-6">
                       <div className="flex items-center gap-2 mb-4">
                         <Filter size={20} className="text-blue-600" />
                         <h3 className="font-semibold text-base sm:text-lg">Filtrer les statistiques</h3>
@@ -202,7 +202,7 @@ export default function StatsModal({
                   </div>
 
                   {/* Graphiques */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
                     {/* Graphique 1: Temps de vol par pilote */}
                     <Card className="border-2 border-blue-200">
                       <CardHeader className="bg-blue-50">

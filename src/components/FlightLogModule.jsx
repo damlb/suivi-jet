@@ -490,7 +490,7 @@ export default function FlightLogModule({ userId, userRole }) {
     const stats = calculateStats()
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-6">
         {/* Statistiques globales */}
         {(selectedPilot !== 'all' || selectedDate) && (
           <Card className="border-2 border-green-200 bg-green-50">
@@ -549,7 +549,7 @@ export default function FlightLogModule({ userId, userRole }) {
 
         {/* Filtres pour agents */}
         <Card className="border-2 border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
+          <CardContent className="pt-3 sm:pt-6">
             <div className="flex items-center gap-2 mb-4">
               <Filter size={20} className="text-blue-600" />
               <h3 className="font-semibold text-base sm:text-lg">Filtres</h3>
@@ -697,7 +697,7 @@ export default function FlightLogModule({ userId, userRole }) {
 
   // Interface pilote (complète avec boutons action)
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {/* 1️⃣ VOL EN COURS (si actif) */}
       {currentFlight && (
         <Card className="border-orange-500 border-2 bg-orange-50">
@@ -708,7 +708,7 @@ export default function FlightLogModule({ userId, userRole }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 text-sm sm:text-base">
+            <div className="space-y-1 sm:space-y-2 text-sm sm:text-base">
               <div className="flex items-center gap-2">
                 <MapPin size={16} className="text-orange-600" />
                 <span className="font-semibold">Départ :</span>
@@ -729,8 +729,8 @@ export default function FlightLogModule({ userId, userRole }) {
 
       {/* 2️⃣ BOUTONS PRINCIPAUX */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
+        <CardContent className="pt-3 sm:pt-6">
+          <div className="space-y-3 sm:space-y-4">
             {/* Recherche Drop Zone */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">

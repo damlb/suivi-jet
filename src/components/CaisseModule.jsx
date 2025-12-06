@@ -253,29 +253,29 @@ export default function CaisseModule() {
     }, 0)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 sm:space-y-4">
       {/* Cartes de résumé */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <Card className="bg-gradient-to-br from-emerald-400 to-emerald-500 text-white shadow-lg">
-          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+          <CardContent className="pt-3 sm:pt-3 sm:pt-6 p-2 sm:p-6">
             <p className="text-[10px] sm:text-sm opacity-90">Total Ventes</p>
             <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{totalEncaissements.toFixed(2)} €</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-lg">
-          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+          <CardContent className="pt-3 sm:pt-3 sm:pt-6 p-2 sm:p-6">
             <p className="text-[10px] sm:text-sm opacity-90">Total Achats</p>
             <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{totalDecaissements.toFixed(2)} €</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-violet-400 to-violet-500 text-white shadow-lg">
-          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+          <CardContent className="pt-3 sm:pt-3 sm:pt-6 p-2 sm:p-6">
             <p className="text-[10px] sm:text-sm opacity-90">Dépôts Banque</p>
             <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{totalDepots.toFixed(2)} €</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-sky-400 to-sky-500 text-white shadow-lg">
-          <CardContent className="pt-3 sm:pt-6 p-2 sm:p-6">
+          <CardContent className="pt-3 sm:pt-3 sm:pt-6 p-2 sm:p-6">
             <p className="text-[10px] sm:text-sm opacity-90">Cash Dispo</p>
             <p className="text-base sm:text-3xl font-bold mt-1 sm:mt-2">{cashDisponible.toFixed(2)} €</p>
           </CardContent>
@@ -346,7 +346,7 @@ export default function CaisseModule() {
       {/* Formulaire d'ajout */}
       {showAddTransaction && (
         <Card className="border-2 border-green-200">
-          <CardContent className="pt-6">
+          <CardContent className="pt-3 sm:pt-6">
             <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -480,7 +480,7 @@ export default function CaisseModule() {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-3 sm:pt-6">
           {/* Filtres */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
             <input

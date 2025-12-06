@@ -1,877 +1,484 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
-import { Card, CardContent } from './ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { Users, Plus, Trash2, Phone, Mail, Clock, Calendar, CheckCircle } from 'lucide-react'
 
 export default function ListeAttenteModule() {
   const [clients, setClients] = useState([])
-  const [circuits, setCircuits] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('actifs') // 'actifs' ou 'archives'
-  const [showAddClient, setShowAddClient] = useState(false)
-  const [showGestionCircuits, setShowGestionCircuits] = useState(false)
-  const [filterCircuit, setFilterCircuit] = useState('')
-  const [filterDate, setFilterDate] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState({ show: false, type: '', id: null })
-  const [editingClient, setEditingClient] = useState(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [filter, setFilter] = useState('all') // all, pending, contacted, confirmed, cancelled
   
-  const [newClient, setNewClient] = useState({
-    prenom: '',
+  const [formData, setFormData] = useState({
     nom: '',
+    prenom: '',
     telephone: '',
     email: '',
-    circuit_id: '',
+    nombre_passagers: 1,
+    depart: '',
+    destination: '',
+    date_souhaitee: '',
+    heure_souhaitee: '',
+    budget_estime: '',
     notes: '',
-    dates_dispo: [],
-    statut_paiement: 'en_attente',
-    nombre_pax: '1'
+    statut: 'pending'
   })
-
-  const [newCircuit, setNewCircuit] = useState({
-    nom: '',
-    duree_minutes: ''
-  })
-
-  const [newDate, setNewDate] = useState('')
 
   useEffect(() => {
-    loadData()
+    loadClients()
   }, [])
 
-  const loadData = async () => {
-    // Charger les circuits
-    const { data: circuitsData } = await supabase
-      .from('circuits')
-      .select('*')
-      .order('nom')
-
-    if (circuitsData) {
-      setCircuits(circuitsData)
-    }
-
-    // Charger les clients
-    const { data: clientsData } = await supabase
+  const loadClients = async () => {
+    const { data, error } = await supabase
       .from('liste_attente')
-      .select('*, circuit:circuits(nom, duree_minutes)')
+      .select('*')
       .order('created_at', { ascending: false })
 
-    if (clientsData) {
-      setClients(clientsData)
+    if (data) {
+      setClients(data)
+    } else {
+      console.error('Erreur chargement clients:', error)
     }
-
     setLoading(false)
   }
 
-  const addClient = async () => {
-    if (!newClient.prenom || !newClient.nom || !newClient.telephone || !newClient.circuit_id) {
-      alert('Veuillez remplir les champs obligatoires (prénom, nom, téléphone, circuit)')
+  const resetForm = () => {
+    setFormData({
+      nom: '',
+      prenom: '',
+      telephone: '',
+      email: '',
+      nombre_passagers: 1,
+      depart: '',
+      destination: '',
+      date_souhaitee: '',
+      heure_souhaitee: '',
+      budget_estime: '',
+      notes: '',
+      statut: 'pending'
+    })
+    setShowAddForm(false)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!formData.nom || !formData.prenom || !formData.telephone) {
+      alert('⚠️ Veuillez remplir au minimum nom, prénom et téléphone')
       return
     }
 
-    const clientData = {
-      prenom: newClient.prenom,
-      nom: newClient.nom,
-      telephone: newClient.telephone,
-      email: newClient.email || null,
-      circuit_id: parseInt(newClient.circuit_id),
-      notes: newClient.notes,
-      dates_dispo: newClient.dates_dispo,
-      statut_paiement: newClient.statut_paiement,
-      nombre_pax: parseInt(newClient.nombre_pax),
-      place: false
-    }
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('liste_attente')
-      .insert([clientData])
-      .select('*, circuit:circuits(nom, duree_minutes)')
+      .insert([formData])
 
-    if (data) {
-      setClients([data[0], ...clients])
-      setNewClient({
-        prenom: '',
-        nom: '',
-        telephone: '',
-        email: '',
-        circuit_id: '',
-        notes: '',
-        dates_dispo: [],
-        statut_paiement: 'en_attente',
-        nombre_pax: '1'
-      })
-      setShowAddClient(false)
+    if (!error) {
+      alert('✅ Client ajouté à la liste d\'attente')
+      loadClients()
+      resetForm()
+    } else {
+      console.error('Erreur ajout:', error)
+      alert('❌ Erreur lors de l\'ajout')
     }
   }
 
-  const togglePlace = async (id, currentState) => {
+  const updateStatus = async (id, newStatus) => {
     const { error } = await supabase
       .from('liste_attente')
       .update({ 
-        place: !currentState,
-        date_placement: !currentState ? new Date().toISOString() : null
+        statut: newStatus,
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
 
     if (!error) {
-      setClients(clients.map(client =>
-        client.id === id
-          ? { ...client, place: !currentState, date_placement: !currentState ? new Date().toISOString() : null }
-          : client
+      setClients(clients.map(c => 
+        c.id === id ? { ...c, statut: newStatus, updated_at: new Date().toISOString() } : c
       ))
     }
   }
 
-  const deleteClient = async (id) => {
-    setConfirmDelete({ show: true, type: 'client', id })
-  }
-
-  const confirmDeleteAction = async () => {
-    if (confirmDelete.type === 'client') {
-      const { error } = await supabase
-        .from('liste_attente')
-        .delete()
-        .eq('id', confirmDelete.id)
-
-      if (!error) {
-        setClients(clients.filter(c => c.id !== confirmDelete.id))
-      }
-    } else if (confirmDelete.type === 'circuit') {
-      const { error } = await supabase
-        .from('circuits')
-        .delete()
-        .eq('id', confirmDelete.id)
-
-      if (!error) {
-        setCircuits(circuits.filter(c => c.id !== confirmDelete.id))
-      }
-    }
-    setConfirmDelete({ show: false, type: '', id: null })
-  }
-
-  const startEditClient = (client) => {
-    setEditingClient({
-      ...client,
-      circuit_id: client.circuit_id?.toString() || '',
-      nombre_pax: client.nombre_pax?.toString() || '1',
-      dates_dispo: client.dates_dispo || []
-    })
-  }
-
-  const saveEditClient = async () => {
-    if (!editingClient.prenom || !editingClient.nom || !editingClient.telephone || !editingClient.circuit_id) {
-      alert('Veuillez remplir les champs obligatoires (prénom, nom, téléphone, circuit)')
-      return
-    }
+  const deleteClient = async (id, nom) => {
+    if (!confirm(`Supprimer ${nom} de la liste d'attente ?`)) return
 
     const { error } = await supabase
       .from('liste_attente')
-      .update({
-        prenom: editingClient.prenom,
-        nom: editingClient.nom,
-        telephone: editingClient.telephone,
-        email: editingClient.email || null,
-        circuit_id: parseInt(editingClient.circuit_id),
-        notes: editingClient.notes,
-        dates_dispo: editingClient.dates_dispo,
-        statut_paiement: editingClient.statut_paiement,
-        nombre_pax: parseInt(editingClient.nombre_pax)
-      })
-      .eq('id', editingClient.id)
+      .delete()
+      .eq('id', id)
 
     if (!error) {
-      // Recharger les données pour avoir le circuit à jour
-      await loadData()
-      setEditingClient(null)
+      alert('✅ Client supprimé')
+      loadClients()
     }
   }
 
-  const addDateDispoEdit = (date) => {
-    if (date && !editingClient.dates_dispo.includes(date)) {
-      setEditingClient({
-        ...editingClient,
-        dates_dispo: [...editingClient.dates_dispo, date].sort()
-      })
-    }
+  // Filtrage
+  const filteredClients = clients.filter(c => {
+    if (filter === 'all') return true
+    return c.statut === filter
+  })
+
+  // Statistiques
+  const stats = {
+    total: clients.length,
+    pending: clients.filter(c => c.statut === 'pending').length,
+    contacted: clients.filter(c => c.statut === 'contacted').length,
+    confirmed: clients.filter(c => c.statut === 'confirmed').length,
+    cancelled: clients.filter(c => c.statut === 'cancelled').length
   }
 
-  const removeDateDispoEdit = (date) => {
-    setEditingClient({
-      ...editingClient,
-      dates_dispo: editingClient.dates_dispo.filter(d => d !== date)
-    })
-  }
-
-  const addCircuit = async () => {
-    if (!newCircuit.nom || !newCircuit.duree_minutes) {
-      alert('Veuillez remplir tous les champs')
-      return
+  // Badges statuts
+  const getStatusBadge = (statut) => {
+    const badges = {
+      pending: { color: 'bg-orange-100 text-orange-700', label: '⏳ En attente' },
+      contacted: { color: 'bg-blue-100 text-blue-700', label: '📞 Contacté' },
+      confirmed: { color: 'bg-green-100 text-green-700', label: '✅ Confirmé' },
+      cancelled: { color: 'bg-gray-100 text-gray-700', label: '❌ Annulé' }
     }
-
-    const { data, error } = await supabase
-      .from('circuits')
-      .insert([
-        {
-          nom: newCircuit.nom,
-          duree_minutes: parseInt(newCircuit.duree_minutes)
-        }
-      ])
-      .select()
-
-    if (data) {
-      setCircuits([...circuits, data[0]])
-      setNewCircuit({ nom: '', duree_minutes: '' })
-    }
-  }
-
-  const deleteCircuit = async (id) => {
-    // Vérifier si des clients utilisent ce circuit
-    const clientsWithCircuit = clients.filter(c => c.circuit_id === id)
-    if (clientsWithCircuit.length > 0) {
-      alert(`Impossible de supprimer ce circuit car ${clientsWithCircuit.length} client(s) l'utilisent`)
-      return
-    }
-
-    setConfirmDelete({ show: true, type: 'circuit', id })
-  }
-
-  const addDateDispo = () => {
-    if (newDate && !newClient.dates_dispo.includes(newDate)) {
-      setNewClient({
-        ...newClient,
-        dates_dispo: [...newClient.dates_dispo, newDate].sort()
-      })
-      setNewDate('')
-    }
-  }
-
-  const removeDateDispo = (date) => {
-    setNewClient({
-      ...newClient,
-      dates_dispo: newClient.dates_dispo.filter(d => d !== date)
-    })
+    return badges[statut] || badges.pending
   }
 
   if (loading) {
     return <div className="text-center py-8">Chargement...</div>
   }
 
-  // Filtrage
-  const clientsActifs = clients.filter(c => !c.place)
-  const clientsArchives = clients.filter(c => c.place)
-  const displayedClients = view === 'actifs' ? clientsActifs : clientsArchives
-
-  const filteredClients = displayedClients.filter(client => {
-    const matchCircuit = !filterCircuit || client.circuit_id === parseInt(filterCircuit)
-    const matchDate = !filterDate || (client.dates_dispo && client.dates_dispo.includes(filterDate))
-    return matchCircuit && matchDate
-  })
-
-  const getStatutLabel = (statut) => {
-    switch (statut) {
-      case 'billets_achetes': return 'Billets achetés'
-      case 'en_attente': return 'En attente achat'
-      case 'paiement_sur_place': return 'Paiement sur place'
-      default: return statut
-    }
-  }
-
-  const getStatutColor = (statut) => {
-    switch (statut) {
-      case 'billets_achetes': return 'bg-green-100 text-green-700'
-      case 'en_attente': return 'bg-orange-100 text-orange-700'
-      case 'paiement_sur_place': return 'bg-blue-100 text-blue-700'
-      default: return 'bg-gray-100 text-gray-700'
-    }
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Popup de confirmation de suppression */}
-      {confirmDelete.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">⚠️ Confirmation</h3>
-            <p className="text-gray-600 mb-6">
-              Êtes-vous sûr de vouloir supprimer ce {confirmDelete.type === 'client' ? 'client' : 'circuit'} ?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={confirmDeleteAction}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold"
-              >
-                Oui, supprimer
-              </button>
-              <button
-                onClick={() => setConfirmDelete({ show: false, type: '', id: null })}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition-colors font-semibold"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
+    <div className="space-y-2 sm:space-y-4 sm:space-y-3 sm:space-y-6">
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-2 sm:gap-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setFilter('all')}>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-blue-600 mb-1">Total</div>
+            <div className="text-2xl sm:text-3xl font-bold text-blue-900">{stats.total}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setFilter('pending')}>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-orange-600 mb-1">En attente</div>
+            <div className="text-2xl sm:text-3xl font-bold text-orange-900">{stats.pending}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setFilter('contacted')}>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-blue-600 mb-1">Contactés</div>
+            <div className="text-2xl sm:text-3xl font-bold text-blue-900">{stats.contacted}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setFilter('confirmed')}>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-green-600 mb-1">Confirmés</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-900">{stats.confirmed}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-gray-50 to-gray-100 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setFilter('cancelled')}>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+            <div className="text-xs sm:text-sm text-gray-600 mb-1">Annulés</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.cancelled}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filtre actif */}
+      {filter !== 'all' && (
+        <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+          <span className="text-sm text-blue-700">
+            Filtre actif: <strong>{getStatusBadge(filter).label}</strong>
+          </span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setFilter('all')}
+            className="text-xs"
+          >
+            Afficher tout
+          </Button>
         </div>
       )}
 
-      {/* Popup formulaire d'ajout client */}
-      {showAddClient && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={() => {
-            setShowAddClient(false)
-            setNewClient({
-              prenom: '',
-              nom: '',
-              telephone: '',
-              email: '',
-              circuit_id: '',
-              notes: '',
-              dates_dispo: [],
-              statut_paiement: 'en_attente',
-              nombre_pax: '1'
-            })
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg p-6 max-w-2xl w-full shadow-2xl my-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">🚁 Nouveau client en attente</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Prénom *</label>
-                  <input
-                    type="text"
-                    value={newClient.prenom}
-                    onChange={(e) => setNewClient({ ...newClient, prenom: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Nom *</label>
-                  <input
-                    type="text"
-                    value={newClient.nom}
-                    onChange={(e) => setNewClient({ ...newClient, nom: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
+      {/* Bouton Ajouter */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg sm:text-xl font-semibold">
+          👥 Liste d'attente ({filteredClients.length})
+        </h3>
+        <Button onClick={() => setShowAddForm(!showAddForm)} className="text-sm">
+          <Plus size={18} className="mr-2" />
+          Ajouter
+        </Button>
+      </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* Formulaire d'ajout */}
+      {showAddForm && (
+        <Card className="border-2 border-blue-500">
+          <CardHeader className="bg-blue-50 p-3 sm:p-6">
+            <CardTitle className="text-base sm:text-xl">➕ Nouveau client</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 sm:pt-3 sm:pt-6">
+            <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-2 sm:gap-4">
+                {/* Nom */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Téléphone *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Nom *</label>
+                  <input
+                    type="text"
+                    value={formData.nom}
+                    onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                    required
+                  />
+                </div>
+
+                {/* Prénom */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Prénom *</label>
+                  <input
+                    type="text"
+                    value={formData.prenom}
+                    onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                    required
+                  />
+                </div>
+
+                {/* Téléphone */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Téléphone *</label>
                   <input
                     type="tel"
-                    value={newClient.telephone}
-                    onChange={(e) => setNewClient({ ...newClient, telephone: e.target.value })}
-                    placeholder="06 12 34 56 78"
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                    value={formData.telephone}
+                    onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                    required
                   />
                 </div>
+
+                {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Email</label>
                   <input
                     type="email"
-                    value={newClient.email}
-                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                    placeholder="exemple@email.com"
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* Nombre passagers */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Nombre de passagers</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="6"
+                    value={formData.nombre_passagers}
+                    onChange={(e) => setFormData({ ...formData, nombre_passagers: parseInt(e.target.value) })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* Budget estimé */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Budget estimé (€)</label>
+                  <input
+                    type="text"
+                    value={formData.budget_estime}
+                    onChange={(e) => setFormData({ ...formData, budget_estime: e.target.value })}
+                    placeholder="Ex: 800€"
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* Départ */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Lieu de départ</label>
+                  <input
+                    type="text"
+                    value={formData.depart}
+                    onChange={(e) => setFormData({ ...formData, depart: e.target.value })}
+                    placeholder="Ex: Figari"
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* Destination */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Destination</label>
+                  <input
+                    type="text"
+                    value={formData.destination}
+                    onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                    placeholder="Ex: Ajaccio"
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* Date souhaitée */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Date souhaitée</label>
+                  <input
+                    type="date"
+                    value={formData.date_souhaitee}
+                    onChange={(e) => setFormData({ ...formData, date_souhaitee: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* Heure souhaitée */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Heure souhaitée</label>
+                  <input
+                    type="time"
+                    value={formData.heure_souhaitee}
+                    onChange={(e) => setFormData({ ...formData, heure_souhaitee: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Circuit *</label>
-                  <select
-                    value={newClient.circuit_id}
-                    onChange={(e) => setNewClient({ ...newClient, circuit_id: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">Sélectionner un circuit</option>
-                    {circuits.map(circuit => (
-                      <option key={circuit.id} value={circuit.id}>
-                        {circuit.nom} ({circuit.duree_minutes} min)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Nombre de passagers</label>
-                  <select
-                    value={newClient.nombre_pax}
-                    onChange={(e) => setNewClient({ ...newClient, nombre_pax: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="1">1 passager</option>
-                    <option value="2">2 passagers</option>
-                    <option value="3">3 passagers</option>
-                    <option value="4">4 passagers</option>
-                    <option value="5">5 passagers</option>
-                    <option value="6">6 passagers</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Statut paiement</label>
-                  <select
-                    value={newClient.statut_paiement}
-                    onChange={(e) => setNewClient({ ...newClient, statut_paiement: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="en_attente">En attente achat</option>
-                    <option value="billets_achetes">Billets achetés</option>
-                    <option value="paiement_sur_place">Paiement sur place</option>
-                  </select>
-                </div>
-              </div>
-
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-medium mb-1">Notes</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1">Notes</label>
                 <textarea
-                  value={newClient.notes}
-                  onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
-                  placeholder="Notes ou informations complémentaires..."
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Informations complémentaires..."
+                  className="w-full p-2 border rounded-lg text-sm"
                   rows="2"
                 />
               </div>
 
-              {/* Dates de disponibilité */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Dates de disponibilité</label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="date"
-                    value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                    className="flex-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                  <Button onClick={addDateDispo} variant="ghost">+ Ajouter</Button>
-                </div>
-                {newClient.dates_dispo.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {newClient.dates_dispo.map(date => (
-                      <span
-                        key={date}
-                        className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-2"
-                      >
-                        📅 {new Date(date).toLocaleDateString('fr-FR')}
-                        <button
-                          onClick={() => removeDateDispo(date)}
-                          className="text-red-500 hover:text-red-700 font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <Button onClick={addClient} className="flex-1">Ajouter le client</Button>
-                <Button variant="ghost" onClick={() => {
-                  setShowAddClient(false)
-                  setNewClient({
-                    prenom: '',
-                    nom: '',
-                    telephone: '',
-                    email: '',
-                    circuit_id: '',
-                    notes: '',
-                    dates_dispo: [],
-                    statut_paiement: 'en_attente',
-                    nombre_pax: '1'
-                  })
-                }}>
+              {/* Boutons */}
+              <div className="flex gap-2">
+                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-sm">
+                  ✅ Ajouter
+                </Button>
+                <Button type="button" onClick={resetForm} variant="ghost" className="text-sm">
                   Annuler
                 </Button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Popup d'édition client */}
-      {editingClient && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={() => setEditingClient(null)}
-        >
-          <div 
-            className="bg-white rounded-lg p-6 max-w-2xl w-full shadow-2xl my-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">✏️ Modifier le client</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Prénom *</label>
-                  <input
-                    type="text"
-                    value={editingClient.prenom}
-                    onChange={(e) => setEditingClient({ ...editingClient, prenom: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Nom *</label>
-                  <input
-                    type="text"
-                    value={editingClient.nom}
-                    onChange={(e) => setEditingClient({ ...editingClient, nom: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Téléphone *</label>
-                  <input
-                    type="tel"
-                    value={editingClient.telephone}
-                    onChange={(e) => setEditingClient({ ...editingClient, telephone: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={editingClient.email || ''}
-                    onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Circuit *</label>
-                  <select
-                    value={editingClient.circuit_id}
-                    onChange={(e) => setEditingClient({ ...editingClient, circuit_id: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">Sélectionner</option>
-                    {circuits.map(circuit => (
-                      <option key={circuit.id} value={circuit.id}>
-                        {circuit.nom} ({circuit.duree_minutes} min)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Passagers</label>
-                  <select
-                    value={editingClient.nombre_pax}
-                    onChange={(e) => setEditingClient({ ...editingClient, nombre_pax: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map(n => (
-                      <option key={n} value={n}>{n} passager{n > 1 ? 's' : ''}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Statut</label>
-                  <select
-                    value={editingClient.statut_paiement}
-                    onChange={(e) => setEditingClient({ ...editingClient, statut_paiement: e.target.value })}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="en_attente">En attente</option>
-                    <option value="billets_achetes">Billets achetés</option>
-                    <option value="paiement_sur_place">Paiement sur place</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Notes</label>
-                <textarea
-                  value={editingClient.notes || ''}
-                  onChange={(e) => setEditingClient({ ...editingClient, notes: e.target.value })}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  rows="2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Dates de disponibilité</label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="date"
-                    id="editDateInput"
-                    className="flex-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                  <Button onClick={() => {
-                    const dateInput = document.getElementById('editDateInput')
-                    if (dateInput.value) {
-                      addDateDispoEdit(dateInput.value)
-                      dateInput.value = ''
-                    }
-                  }} variant="ghost">+ Ajouter</Button>
-                </div>
-                {editingClient.dates_dispo && editingClient.dates_dispo.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {editingClient.dates_dispo.map(date => (
-                      <span
-                        key={date}
-                        className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-2"
-                      >
-                        📅 {new Date(date).toLocaleDateString('fr-FR')}
-                        <button
-                          onClick={() => removeDateDispoEdit(date)}
-                          className="text-red-500 hover:text-red-700 font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <Button onClick={saveEditClient} className="flex-1">Enregistrer</Button>
-                <Button variant="ghost" onClick={() => setEditingClient(null)}>Annuler</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2">
-          <Button onClick={() => setShowAddClient(true)}>
-            + Créer client
-          </Button>
-          <Button 
-            onClick={() => setShowGestionCircuits(!showGestionCircuits)} 
-            variant="ghost"
-            className="text-sm"
-          >
-            ⚙️ Gérer circuits
-          </Button>
-        </div>
-      </div>
-
-      {/* Gestion des circuits */}
-      {showGestionCircuits && (
-        <Card className="border-2 border-purple-200">
-          <CardContent className="pt-6">
-            <h4 className="font-semibold mb-3">Gestion des circuits</h4>
-            
-            {/* Ajouter un circuit */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              <input
-                type="text"
-                value={newCircuit.nom}
-                onChange={(e) => setNewCircuit({ ...newCircuit, nom: e.target.value })}
-                placeholder="Nom du circuit"
-                className="p-2 border rounded-lg"
-              />
-              <input
-                type="number"
-                value={newCircuit.duree_minutes}
-                onChange={(e) => setNewCircuit({ ...newCircuit, duree_minutes: e.target.value })}
-                placeholder="Durée (minutes)"
-                className="p-2 border rounded-lg"
-              />
-              <Button onClick={addCircuit}>+ Ajouter circuit</Button>
-            </div>
-
-            {/* Liste des circuits */}
-            <div className="space-y-2">
-              {circuits.map(circuit => (
-                <div key={circuit.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <span className="font-semibold">{circuit.nom}</span>
-                    <span className="ml-3 text-sm text-gray-600">({circuit.duree_minutes} min)</span>
-                  </div>
-                  <button
-                    onClick={() => deleteCircuit(circuit.id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ))}
-            </div>
+            </form>
           </CardContent>
         </Card>
       )}
 
-      {/* Onglets Actifs / Archives */}
-      <div className="flex gap-2 border-b-2 border-gray-200">
-        <button
-          onClick={() => setView('actifs')}
-          className={`px-6 py-3 font-semibold transition-all border-b-4 ${
-            view === 'actifs'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          En attente
-          <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-bold">
-            {clientsActifs.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setView('archives')}
-          className={`px-6 py-3 font-semibold transition-all border-b-4 ${
-            view === 'archives'
-              ? 'border-gray-500 text-gray-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Placés
-          <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-600 rounded-full text-xs font-bold">
-            {clientsArchives.length}
-          </span>
-        </button>
-      </div>
-
-      {/* Filtres */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-3 mb-4">
-            <div className="min-w-[200px]">
-              <select
-                value={filterCircuit}
-                onChange={(e) => setFilterCircuit(e.target.value)}
-                className="w-full p-2 border rounded-lg"
-              >
-                <option value="">Tous les circuits</option>
-                {circuits.map(circuit => (
-                  <option key={circuit.id} value={circuit.id}>
-                    {circuit.nom}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="min-w-[200px]">
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                placeholder="Filtrer par date dispo"
-                className="w-full p-2 border rounded-lg"
-              />
-            </div>
-            {(filterCircuit || filterDate) && (
-              <Button
-                onClick={() => {
-                  setFilterCircuit('')
-                  setFilterDate('')
-                }}
-                variant="ghost"
-              >
-                Réinitialiser
-              </Button>
-            )}
+      {/* Liste des clients */}
+      <div className="space-y-3">
+        {filteredClients.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <Users size={48} className="mx-auto mb-3 opacity-50" />
+            <p className="text-sm">Aucun client dans la liste d'attente</p>
           </div>
-
-          {/* Tableau */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 text-center">
-                    {view === 'actifs' ? '✓' : ''}
-                  </th>
-                  <th className="p-2 text-left">Nom</th>
-                  <th className="p-2 text-left">Circuit</th>
-                  <th className="p-2 text-center">PAX</th>
-                  <th className="p-2 text-left">Statut paiement</th>
-                  <th className="p-2 text-left">Dates dispo</th>
-                  <th className="p-2 text-left">Notes</th>
-                  <th className="p-2 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredClients.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="text-center py-12 text-gray-400">
-                      🚁 {view === 'actifs' ? 'Aucun client en attente' : 'Aucun client placé'}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredClients.map(client => (
-                    <tr 
-                      key={client.id} 
-                      className={`border-b hover:bg-gray-50 cursor-pointer ${client.place ? 'bg-green-50' : ''}`}
-                      onClick={() => startEditClient(client)}
-                    >
-                      <td className="p-2 text-center" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={client.place}
-                          onChange={() => togglePlace(client.id, client.place)}
-                          className="w-5 h-5 cursor-pointer"
-                        />
-                      </td>
-                      <td className="p-2 font-medium">
+        ) : (
+          filteredClients.map(client => (
+            <Card key={client.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
+                <div className="flex flex-col md:flex-row md:items-start gap-2 sm:gap-4">
+                  {/* Infos principales */}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-bold text-base sm:text-lg">
                         {client.prenom} {client.nom}
-                      </td>
-                      <td className="p-2">
-                        {client.circuit ? (
-                          <span className="text-blue-600">
-                            {client.circuit.nom}
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({client.circuit.duree_minutes} min)
-                            </span>
+                      </h4>
+                      <span className={`${getStatusBadge(client.statut).color} px-2 py-1 rounded-full text-xs font-semibold`}>
+                        {getStatusBadge(client.statut).label}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-gray-600">
+                      {client.telephone && (
+                        <div className="flex items-center gap-2">
+                          <Phone size={16} className="text-blue-500 flex-shrink-0" />
+                          <a href={`tel:${client.telephone}`} className="hover:text-blue-600">
+                            {client.telephone}
+                          </a>
+                        </div>
+                      )}
+                      {client.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail size={16} className="text-purple-500 flex-shrink-0" />
+                          <a href={`mailto:${client.email}`} className="hover:text-purple-600 truncate">
+                            {client.email}
+                          </a>
+                        </div>
+                      )}
+                      {client.date_souhaitee && (
+                        <div className="flex items-center gap-2">
+                          <Calendar size={16} className="text-green-500 flex-shrink-0" />
+                          <span>
+                            {new Date(client.date_souhaitee).toLocaleDateString('fr-FR')}
+                            {client.heure_souhaitee && ` à ${client.heure_souhaitee}`}
                           </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="p-2 text-center">
-                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
-                          👥 {client.nombre_pax || 1}
-                        </span>
-                      </td>
-                      <td className="p-2">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatutColor(client.statut_paiement)}`}>
-                          {getStatutLabel(client.statut_paiement)}
-                        </span>
-                      </td>
-                      <td className="p-2">
-                        {client.dates_dispo && client.dates_dispo.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {client.dates_dispo.map(date => (
-                              <span key={date} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                                {new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-xs">Aucune date</span>
-                        )}
-                      </td>
-                      <td className="p-2 text-gray-600 text-xs max-w-xs truncate">
-                        {client.notes || '-'}
-                      </td>
-                      <td className="p-2 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => deleteClient(client.id)}
-                          className="text-red-500 hover:text-red-700"
-                          title="Supprimer"
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                        </div>
+                      )}
+                      {client.nombre_passagers > 1 && (
+                        <div className="flex items-center gap-2">
+                          <Users size={16} className="text-orange-500 flex-shrink-0" />
+                          <span>{client.nombre_passagers} passagers</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {(client.depart || client.destination) && (
+                      <div className="text-xs sm:text-sm">
+                        <span className="font-semibold">Trajet:</span> {client.depart || '?'} → {client.destination || '?'}
+                      </div>
+                    )}
+
+                    {client.budget_estime && (
+                      <div className="text-xs sm:text-sm">
+                        <span className="font-semibold">Budget:</span> {client.budget_estime}
+                      </div>
+                    )}
+
+                    {client.notes && (
+                      <div className="text-xs sm:text-sm bg-gray-50 p-2 rounded">
+                        <span className="font-semibold">Notes:</span> {client.notes}
+                      </div>
+                    )}
+
+                    <div className="text-xs text-gray-400 flex items-center gap-2 pt-2 border-t">
+                      <Clock size={14} />
+                      Ajouté le {new Date(client.created_at).toLocaleDateString('fr-FR')} à{' '}
+                      {new Date(client.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex md:flex-col gap-2">
+                    <select
+                      value={client.statut}
+                      onChange={(e) => updateStatus(client.id, e.target.value)}
+                      className="px-2 py-1 border rounded text-xs sm:text-sm"
+                    >
+                      <option value="pending">⏳ En attente</option>
+                      <option value="contacted">📞 Contacté</option>
+                      <option value="confirmed">✅ Confirmé</option>
+                      <option value="cancelled">❌ Annulé</option>
+                    </select>
+
+                    <button
+                      onClick={() => deleteClient(client.id, `${client.prenom} ${client.nom}`)}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs sm:text-sm whitespace-nowrap"
+                    >
+                      <Trash2 size={14} className="inline mr-1" />
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   )
 }
