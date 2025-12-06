@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Plane, MapPin, Clock, Calendar, Trash2, Filter } from 'lucide-react'
+import { Plane, MapPin, Clock, Calendar, Trash2, Filter, BarChart3 } from 'lucide-react'
+import StatsModal from './StatsModal'
 
 export default function FlightLogModule({ userId, userRole }) {
   const [dropZones, setDropZones] = useState([])
@@ -10,6 +11,9 @@ export default function FlightLogModule({ userId, userRole }) {
   const [allFlights, setAllFlights] = useState([]) // Tous les vols pour filtrage
   const [currentFlight, setCurrentFlight] = useState(null)
   const [loading, setLoading] = useState(true)
+  
+  // Modale statistiques
+  const [showStatsModal, setShowStatsModal] = useState(false)
   
   // Filtres
   const [pilots, setPilots] = useState([])
@@ -251,6 +255,23 @@ export default function FlightLogModule({ userId, userRole }) {
       .substring(0, 2)
   }
 
+  const handleResetAllData = async () => {
+    // Supprimer tous les vols
+    const { error } = await supabase
+      .from('flight_logs')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000') // Supprime tout
+
+    if (!error) {
+      alert('✅ Toutes les données ont été réinitialisées')
+      setShowStatsModal(false)
+      loadData()
+    } else {
+      console.error('Erreur réinitialisation:', error)
+      alert('❌ Erreur lors de la réinitialisation')
+    }
+  }
+
   const handleEditFlight = (flight) => {
     setEditingFlight(flight)
     setEditDepartureDZ(flight.departure_dz_id ? { 
@@ -474,15 +495,15 @@ export default function FlightLogModule({ userId, userRole }) {
         {(selectedPilot !== 'all' || selectedDate) && (
           <Card className="border-2 border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-xl">
                 📊 Statistiques
                 {selectedPilot !== 'all' && (
-                  <span className="text-sm font-normal">
+                  <span className="text-xs sm:text-sm font-normal">
                     - {pilots.find(p => p.id === selectedPilot)?.username}
                   </span>
                 )}
                 {selectedDate && (
-                  <span className="text-sm font-normal">
+                  <span className="text-xs sm:text-sm font-normal">
                     - {new Date(selectedDate).toLocaleDateString('fr-FR')}
                   </span>
                 )}
@@ -490,27 +511,36 @@ export default function FlightLogModule({ userId, userRole }) {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-lg border border-green-200">
-                  <div className="text-sm text-gray-600 mb-1">Nombre de vols</div>
-                  <div className="text-3xl font-bold text-green-600">{stats.totalFlights}</div>
+                <div className="bg-white p-3 sm:p-4 rounded-lg border border-green-200">
+                  <div className="text-xs sm:text-sm text-gray-600 mb-1">Nombre de vols</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-green-600">{stats.totalFlights}</div>
                 </div>
-                <div className="bg-white p-4 rounded-lg border border-green-200">
-                  <div className="text-sm text-gray-600 mb-1">Temps total</div>
-                  <div className="text-2xl font-bold text-blue-600">{stats.formattedTime}</div>
+                <div className="bg-white p-3 sm:p-4 rounded-lg border border-green-200">
+                  <div className="text-xs sm:text-sm text-gray-600 mb-1">Temps total</div>
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.formattedTime}</div>
                 </div>
-                <div className="bg-white p-4 rounded-lg border border-green-200">
-                  <div className="text-sm text-gray-600 mb-1">Heures de vol</div>
-                  <div className="text-3xl font-bold text-purple-600">{stats.totalHours}h</div>
+                <div className="bg-white p-3 sm:p-4 rounded-lg border border-green-200">
+                  <div className="text-xs sm:text-sm text-gray-600 mb-1">Heures de vol</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-purple-600">{stats.totalHours}h</div>
                 </div>
-                <div className="bg-white p-4 rounded-lg border border-green-200">
-                  <div className="text-sm text-gray-600 mb-1">Minutes totales</div>
-                  <div className="text-3xl font-bold text-orange-600">{stats.totalMinutes}</div>
+                <div className="bg-white p-3 sm:p-4 rounded-lg border border-green-200">
+                  <div className="text-xs sm:text-sm text-gray-600 mb-1">Minutes totales</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-orange-600">{stats.totalMinutes}</div>
                 </div>
               </div>
               
               {stats.totalFlights > 0 && (
-                <div className="mt-4 text-sm text-gray-600">
-                  💡 Moyenne par vol : {Math.round(stats.totalMinutes / stats.totalFlights)} minutes
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-xs sm:text-sm text-gray-600">
+                    💡 Moyenne par vol : {Math.round(stats.totalMinutes / stats.totalFlights)} minutes
+                  </div>
+                  <Button
+                    onClick={() => setShowStatsModal(true)}
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-sm"
+                  >
+                    <BarChart3 size={16} className="mr-2" />
+                    📊 Voir les graphiques
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -522,15 +552,15 @@ export default function FlightLogModule({ userId, userRole }) {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-4">
               <Filter size={20} className="text-blue-600" />
-              <h3 className="font-semibold text-lg">Filtres</h3>
+              <h3 className="font-semibold text-base sm:text-lg">Filtres</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Pilote</label>
+                <label className="block text-xs sm:text-sm font-medium mb-2">Pilote</label>
                 <select
                   value={selectedPilot}
                   onChange={(e) => setSelectedPilot(e.target.value)}
-                  className="w-full p-2 border rounded-lg"
+                  className="w-full p-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tous les pilotes</option>
                   {pilots.map(pilot => (
@@ -541,19 +571,19 @@ export default function FlightLogModule({ userId, userRole }) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Date</label>
+                <label className="block text-xs sm:text-sm font-medium mb-2">Date</label>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full p-2 border rounded-lg"
+                  className="w-full p-2 border rounded-lg text-sm"
                 />
               </div>
               <div className="flex items-end">
                 <Button
                   onClick={resetFilters}
                   variant="outline"
-                  className="w-full"
+                  className="w-full text-sm"
                 >
                   Réinitialiser
                 </Button>
@@ -562,12 +592,25 @@ export default function FlightLogModule({ userId, userRole }) {
           </CardContent>
         </Card>
 
+        {/* Bouton permanent pour voir les graphiques */}
+        {allFlights.filter(f => !f.in_progress && f.arrival_time).length > 0 && (
+          <div className="flex justify-center">
+            <Button
+              onClick={() => setShowStatsModal(true)}
+              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-base px-8 py-6"
+            >
+              <BarChart3 size={20} className="mr-2" />
+              📊 Voir les statistiques et graphiques détaillés
+            </Button>
+          </div>
+        )}
+
         {/* Historique complet pour agents */}
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="text-base sm:text-xl">
               📋 Tous les vols enregistrés
-              <span className="text-sm font-normal text-gray-500 ml-3">
+              <span className="text-xs sm:text-sm font-normal text-gray-500 ml-3">
                 ({flights.length} vol{flights.length > 1 ? 's' : ''})
               </span>
             </CardTitle>
@@ -582,25 +625,25 @@ export default function FlightLogModule({ userId, userRole }) {
                 {flights.map(flight => (
                   <div
                     key={flight.id}
-                    className="p-4 border rounded-lg bg-white hover:shadow-md transition-shadow"
+                    className="p-3 sm:p-4 border rounded-lg bg-white hover:shadow-md transition-shadow"
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           {/* Pastille pilote */}
-                          <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          <div className="flex items-center gap-2 px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                               {getPilotInitials(flight.pilot?.username)}
                             </div>
-                            {flight.pilot?.username || 'Pilote inconnu'}
+                            <span className="hidden sm:inline">{flight.pilot?.username || 'Pilote inconnu'}</span>
                           </div>
                           {flight.in_progress && (
-                            <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-semibold">
+                            <span className="px-2 sm:px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-semibold">
                               En cours
                             </span>
                           )}
                         </div>
-                        <div className="font-semibold text-lg mb-1">
+                        <div className="font-semibold text-sm sm:text-lg mb-1">
                           {flight.departure_dz?.name || flight.departure_location || '📍 Départ non précisé'}
                           {flight.arrival_dz?.name ? (
                             <> → {flight.arrival_dz.name}</>
@@ -610,7 +653,7 @@ export default function FlightLogModule({ userId, userRole }) {
                             <> → 📍 Arrivée non précisée</>
                           ) : null}
                         </div>
-                        <div className="text-sm text-gray-600 space-y-1">
+                        <div className="text-xs sm:text-sm text-gray-600 space-y-1">
                           <div className="flex items-center gap-2">
                             <Calendar size={14} />
                             {new Date(flight.departure_time).toLocaleDateString('fr-FR')}
@@ -626,7 +669,7 @@ export default function FlightLogModule({ userId, userRole }) {
                       </div>
                       <div className="text-right">
                         {!flight.in_progress && (
-                          <div className="text-lg font-bold text-green-600">
+                          <div className="text-base sm:text-lg font-bold text-green-600">
                             {formatDuration(flight.departure_time, flight.arrival_time)}
                           </div>
                         )}
@@ -638,6 +681,16 @@ export default function FlightLogModule({ userId, userRole }) {
             )}
           </CardContent>
         </Card>
+
+        {/* 📊 MODALE STATISTIQUES */}
+        <StatsModal
+          isOpen={showStatsModal}
+          onClose={() => setShowStatsModal(false)}
+          allFlights={allFlights}
+          pilots={pilots}
+          userRole={userRole}
+          onResetData={handleResetAllData}
+        />
       </div>
     )
   }
@@ -649,13 +702,13 @@ export default function FlightLogModule({ userId, userRole }) {
       {currentFlight && (
         <Card className="border-orange-500 border-2 bg-orange-50">
           <CardHeader>
-            <CardTitle className="text-orange-900 flex items-center gap-2">
+            <CardTitle className="text-orange-900 flex items-center gap-2 text-base sm:text-xl">
               <Plane className="animate-bounce" />
               Vol en cours
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-2 text-sm sm:text-base">
               <div className="flex items-center gap-2">
                 <MapPin size={16} className="text-orange-600" />
                 <span className="font-semibold">Départ :</span>
@@ -666,7 +719,7 @@ export default function FlightLogModule({ userId, userRole }) {
                 <span className="font-semibold">Heure décollage :</span>
                 <span>{new Date(currentFlight.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
-              <div className="text-sm text-gray-600 mt-3">
+              <div className="text-xs sm:text-sm text-gray-600 mt-3">
                 ⏱️ Durée actuelle : {Math.round((new Date() - new Date(currentFlight.departure_time)) / 60000)} minutes
               </div>
             </div>
@@ -674,13 +727,13 @@ export default function FlightLogModule({ userId, userRole }) {
         </Card>
       )}
 
-      {/* 2️⃣ BOUTONS PRINCIPAUX - EN PREMIER POUR MOBILE */}
+      {/* 2️⃣ BOUTONS PRINCIPAUX */}
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
             {/* Recherche Drop Zone */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 {currentFlight ? '📍 Drop Zone d\'arrivée (optionnel)' : '📍 Drop Zone de départ (optionnel)'}
               </label>
               <div className="relative">
@@ -693,7 +746,7 @@ export default function FlightLogModule({ userId, userRole }) {
                   }}
                   onFocus={() => searchTerm.length >= 2 && setShowDZList(true)}
                   placeholder="Tapez 2-3 lettres..."
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 sm:p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                 />
                 
                 {/* Liste suggestions */}
@@ -707,9 +760,9 @@ export default function FlightLogModule({ userId, userRole }) {
                           setSearchTerm(dz.name)
                           setShowDZList(false)
                         }}
-                        className="w-full text-left p-3 hover:bg-blue-50 border-b last:border-b-0"
+                        className="w-full text-left p-2 sm:p-3 hover:bg-blue-50 border-b last:border-b-0"
                       >
-                        <div className="font-semibold">{dz.name}</div>
+                        <div className="font-semibold text-sm sm:text-base">{dz.name}</div>
                         {dz.oaci_code && (
                           <div className="text-xs text-gray-500">{dz.oaci_code}</div>
                         )}
@@ -720,12 +773,12 @@ export default function FlightLogModule({ userId, userRole }) {
               </div>
               
               {selectedDZ && (
-                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="mt-2 p-2 sm:p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-green-700 font-semibold">✅ Sélectionné :</span>
-                    <strong>{selectedDZ.name}</strong>
+                    <span className="text-green-700 font-semibold text-xs sm:text-sm">✅ Sélectionné :</span>
+                    <strong className="text-sm sm:text-base">{selectedDZ.name}</strong>
                   </div>
-                  <div className="text-sm text-gray-600 font-mono bg-white px-2 py-1 rounded border border-green-200 inline-block">
+                  <div className="text-xs sm:text-sm text-gray-600 font-mono bg-white px-2 py-1 rounded border border-green-200 inline-block">
                     📍 {selectedDZ.latitude}, {selectedDZ.longitude}
                   </div>
                 </div>
@@ -737,14 +790,14 @@ export default function FlightLogModule({ userId, userRole }) {
               {!currentFlight ? (
                 <Button
                   onClick={handleTakeoff}
-                  className="w-full py-8 text-xl bg-green-500 hover:bg-green-600"
+                  className="w-full py-6 sm:py-8 text-lg sm:text-xl bg-green-500 hover:bg-green-600"
                 >
                   🛫 DÉCOLLAGE
                 </Button>
               ) : (
                 <Button
                   onClick={handleLanding}
-                  className="w-full py-8 text-xl bg-red-500 hover:bg-red-600"
+                  className="w-full py-6 sm:py-8 text-lg sm:text-xl bg-red-500 hover:bg-red-600"
                 >
                   🛬 ATTERRISSAGE
                 </Button>
@@ -753,7 +806,7 @@ export default function FlightLogModule({ userId, userRole }) {
               <Button
                 onClick={() => setDzManagementOpen(!dzManagementOpen)}
                 variant="outline"
-                className="w-full py-8 text-xl"
+                className="w-full py-6 sm:py-8 text-lg sm:text-xl"
               >
                 📍 Gérer Drop Zones
               </Button>
@@ -762,27 +815,27 @@ export default function FlightLogModule({ userId, userRole }) {
         </CardContent>
       </Card>
 
-      {/* 3️⃣ HISTORIQUE DES VOLS - EN DEUXIÈME POUR MOBILE */}
+      {/* 3️⃣ HISTORIQUE DES VOLS */}
       
       {/* Filtre par date pour pilotes */}
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <Filter size={20} className="text-blue-600" />
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-2">Filtrer par date</label>
+            <div className="flex-1 w-full">
+              <label className="block text-xs sm:text-sm font-medium mb-2">Filtrer par date</label>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full p-2 border rounded-lg"
+                className="w-full p-2 border rounded-lg text-sm"
               />
             </div>
             {selectedDate && (
               <Button
                 onClick={resetFilters}
                 variant="outline"
-                className="mt-6"
+                className="mt-0 sm:mt-6 w-full sm:w-auto text-sm"
               >
                 Réinitialiser
               </Button>
@@ -792,25 +845,25 @@ export default function FlightLogModule({ userId, userRole }) {
           {/* Stats du jour si date sélectionnée */}
           {selectedDate && flights.length > 0 && (
             <div className="mt-4 pt-4 border-t border-blue-200">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white p-3 rounded-lg border border-blue-200">
-                  <div className="text-xs text-gray-600 mb-1">Vols</div>
-                  <div className="text-2xl font-bold text-blue-600">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3">
+                <div className="bg-white p-2 sm:p-3 rounded-lg border border-blue-200">
+                  <div className="text-[10px] sm:text-xs text-gray-600 mb-1">Vols</div>
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">
                     {flights.filter(f => !f.in_progress && f.arrival_time).length}
                   </div>
                 </div>
-                <div className="bg-white p-3 rounded-lg border border-blue-200">
-                  <div className="text-xs text-gray-600 mb-1">Minutes</div>
-                  <div className="text-2xl font-bold text-orange-600">
+                <div className="bg-white p-2 sm:p-3 rounded-lg border border-blue-200">
+                  <div className="text-[10px] sm:text-xs text-gray-600 mb-1">Minutes</div>
+                  <div className="text-xl sm:text-2xl font-bold text-orange-600">
                     {flights.filter(f => !f.in_progress && f.arrival_time).reduce((sum, f) => {
                       const diff = new Date(f.arrival_time) - new Date(f.departure_time)
                       return sum + Math.round(diff / 60000)
                     }, 0)}
                   </div>
                 </div>
-                <div className="bg-white p-3 rounded-lg border border-blue-200">
-                  <div className="text-xs text-gray-600 mb-1">Heures</div>
-                  <div className="text-2xl font-bold text-green-600">
+                <div className="bg-white p-2 sm:p-3 rounded-lg border border-blue-200">
+                  <div className="text-[10px] sm:text-xs text-gray-600 mb-1">Heures</div>
+                  <div className="text-xl sm:text-2xl font-bold text-green-600">
                     {Math.floor(flights.filter(f => !f.in_progress && f.arrival_time).reduce((sum, f) => {
                       const diff = new Date(f.arrival_time) - new Date(f.departure_time)
                       return sum + Math.round(diff / 60000)
@@ -818,6 +871,26 @@ export default function FlightLogModule({ userId, userRole }) {
                   </div>
                 </div>
               </div>
+              <Button
+                onClick={() => setShowStatsModal(true)}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-sm"
+              >
+                <BarChart3 size={16} className="mr-2" />
+                📊 Voir les graphiques détaillés
+              </Button>
+            </div>
+          )}
+          
+          {/* Bouton graphiques si pas de date sélectionnée mais qu'il y a des vols */}
+          {!selectedDate && allFlights.filter(f => !f.in_progress && f.arrival_time).length > 0 && (
+            <div className="mt-4 pt-4 border-t border-blue-200">
+              <Button
+                onClick={() => setShowStatsModal(true)}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-sm"
+              >
+                <BarChart3 size={16} className="mr-2" />
+                📊 Voir les statistiques et graphiques
+              </Button>
             </div>
           )}
         </CardContent>
@@ -825,9 +898,9 @@ export default function FlightLogModule({ userId, userRole }) {
       
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="text-base sm:text-xl">
             📋 Historique des vols (cliquez pour modifier)
-            <span className="text-sm font-normal text-gray-500 ml-3">
+            <span className="text-xs sm:text-sm font-normal text-gray-500 ml-3">
               ({flights.length} vol{flights.length > 1 ? 's' : ''})
             </span>
           </CardTitle>
@@ -842,7 +915,7 @@ export default function FlightLogModule({ userId, userRole }) {
               {flights.map(flight => (
                 <div
                   key={flight.id}
-                  className={`p-4 border rounded-lg ${
+                  className={`p-3 sm:p-4 border rounded-lg ${
                     flight.in_progress 
                       ? 'bg-orange-50 border-orange-200' 
                       : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md transition-all'
@@ -853,7 +926,7 @@ export default function FlightLogModule({ userId, userRole }) {
                       className="flex-1 cursor-pointer"
                       onClick={() => userRole === 'pilote' && !flight.in_progress && handleEditFlight(flight)}
                     >
-                      <div className="font-semibold text-lg mb-1">
+                      <div className="font-semibold text-sm sm:text-lg mb-1">
                         {flight.departure_dz?.name || flight.departure_location || '📍 Départ à préciser'}
                         {flight.arrival_dz?.name ? (
                           <> → {flight.arrival_dz.name}</>
@@ -863,7 +936,7 @@ export default function FlightLogModule({ userId, userRole }) {
                           <> → 📍 Arrivée à préciser</>
                         ) : null}
                       </div>
-                      <div className="text-sm text-gray-600 space-y-1">
+                      <div className="text-xs sm:text-sm text-gray-600 space-y-1">
                         <div className="flex items-center gap-2">
                           <Calendar size={14} />
                           {new Date(flight.departure_time).toLocaleDateString('fr-FR')}
@@ -881,17 +954,17 @@ export default function FlightLogModule({ userId, userRole }) {
                     <div className="flex items-center gap-2">
                       <div className="text-right">
                         {flight.in_progress ? (
-                          <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-semibold">
+                          <span className="px-2 sm:px-3 py-1 bg-orange-500 text-white rounded-full text-xs sm:text-sm font-semibold">
                             En cours
                           </span>
                         ) : (
-                          <div className="text-lg font-bold text-green-600">
+                          <div className="text-base sm:text-lg font-bold text-green-600">
                             {formatDuration(flight.departure_time, flight.arrival_time)}
                           </div>
                         )}
                       </div>
                       
-                      {/* Bouton suppression (pilotes seulement et vol terminé) */}
+                      {/* Bouton suppression */}
                       {userRole === 'pilote' && !flight.in_progress && (
                         <button
                           onClick={(e) => {
@@ -913,21 +986,21 @@ export default function FlightLogModule({ userId, userRole }) {
         </CardContent>
       </Card>
 
-      {/* 4️⃣ STATISTIQUES - EN DERNIER POUR MOBILE */}
+      {/* 4️⃣ STATISTIQUES */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="text-sm text-blue-600 mb-1">Vols ce mois-ci</div>
-            <div className="text-3xl font-bold text-blue-900">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="text-xs sm:text-sm text-blue-600 mb-1">Vols ce mois-ci</div>
+            <div className="text-2xl sm:text-3xl font-bold text-blue-900">
               {flights.filter(f => !f.in_progress && new Date(f.departure_time).getMonth() === new Date().getMonth()).length}
             </div>
           </CardContent>
         </Card>
         
         <Card className="bg-green-50 border-green-200">
-          <CardContent className="pt-6">
-            <div className="text-sm text-green-600 mb-1">Heures de vol</div>
-            <div className="text-3xl font-bold text-green-900">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="text-xs sm:text-sm text-green-600 mb-1">Heures de vol</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-900">
               {Math.round(flights.filter(f => !f.in_progress).reduce((sum, f) => {
                 if (f.arrival_time) {
                   const diff = new Date(f.arrival_time) - new Date(f.departure_time)
@@ -940,9 +1013,9 @@ export default function FlightLogModule({ userId, userRole }) {
         </Card>
         
         <Card className={currentFlight ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}>
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-600 mb-1">Statut</div>
-            <div className="text-xl font-bold">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="text-xs sm:text-sm text-gray-600 mb-1">Statut</div>
+            <div className="text-lg sm:text-xl font-bold">
               {currentFlight ? (
                 <span className="text-orange-600">🔴 En vol</span>
               ) : (
@@ -953,13 +1026,13 @@ export default function FlightLogModule({ userId, userRole }) {
         </Card>
       </div>
 
-      {/* Gestion Drop Zones (modal CRUD complet) */}
+      {/* Modal Gestion Drop Zones */}
       {dzManagementOpen && (
         <div 
           className="fixed inset-0 bg-white/95 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={() => {
             setDzManagementOpen(false)
-            setNewDropZone({ name: '', latitude: '', longitude: '', notes: '' })
+            setNewDropZone({ name: '', latitude: '', longitude: '', notes: '', region: 'corse' })
             setEditingDropZone(null)
           }}
         >
@@ -968,18 +1041,18 @@ export default function FlightLogModule({ userId, userRole }) {
             onClick={(e) => e.stopPropagation()}
           >
             <CardHeader>
-              <CardTitle>📍 Gestion des Drop Zones</CardTitle>
+              <CardTitle className="text-base sm:text-xl">📍 Gestion des Drop Zones</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 {/* Formulaire d'ajout/édition */}
-                <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
-                  <h3 className="font-semibold text-lg mb-3">
+                <div className="bg-blue-50 p-3 sm:p-4 rounded-lg border-2 border-blue-200">
+                  <h3 className="font-semibold text-base sm:text-lg mb-3">
                     {editingDropZone ? '✏️ Modifier la Drop Zone' : '➕ Ajouter une Drop Zone'}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Nom *
                       </label>
                       <input
@@ -993,12 +1066,12 @@ export default function FlightLogModule({ userId, userRole }) {
                           }
                         }}
                         placeholder="Ex: Aéroport Ajaccio"
-                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Latitude * (format: 41.36815)
                       </label>
                       <input
@@ -1012,12 +1085,12 @@ export default function FlightLogModule({ userId, userRole }) {
                           }
                         }}
                         placeholder="Ex: 41.36815"
-                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Longitude * (format: 9.260047)
                       </label>
                       <input
@@ -1031,12 +1104,12 @@ export default function FlightLogModule({ userId, userRole }) {
                           }
                         }}
                         placeholder="Ex: 9.260047"
-                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Région * (pour le tri)
                       </label>
                       <select
@@ -1048,7 +1121,7 @@ export default function FlightLogModule({ userId, userRole }) {
                             setNewDropZone({ ...newDropZone, region: e.target.value })
                           }
                         }}
-                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm"
                       >
                         <option value="corse">🇫🇷 Corse</option>
                         <option value="france">🇫🇷 France continentale</option>
@@ -1057,8 +1130,8 @@ export default function FlightLogModule({ userId, userRole }) {
                       </select>
                     </div>
                     
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Notes (optionnel)
                       </label>
                       <input
@@ -1072,7 +1145,7 @@ export default function FlightLogModule({ userId, userRole }) {
                           }
                         }}
                         placeholder="Ex: Base principale"
-                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
                   </div>
@@ -1082,16 +1155,17 @@ export default function FlightLogModule({ userId, userRole }) {
                       <>
                         <Button
                           onClick={handleUpdateDropZone}
-                          className="bg-green-500 hover:bg-green-600"
+                          className="bg-green-500 hover:bg-green-600 text-sm"
                         >
                           ✅ Enregistrer
                         </Button>
                         <Button
                           onClick={() => {
                             setEditingDropZone(null)
-                            setNewDropZone({ name: '', latitude: '', longitude: '', notes: '' })
+                            setNewDropZone({ name: '', latitude: '', longitude: '', notes: '', region: 'corse' })
                           }}
                           variant="outline"
+                          className="text-sm"
                         >
                           Annuler
                         </Button>
@@ -1099,7 +1173,7 @@ export default function FlightLogModule({ userId, userRole }) {
                     ) : (
                       <Button
                         onClick={handleAddDropZone}
-                        className="bg-blue-500 hover:bg-blue-600"
+                        className="bg-blue-500 hover:bg-blue-600 text-sm"
                       >
                         ➕ Ajouter
                       </Button>
@@ -1109,14 +1183,11 @@ export default function FlightLogModule({ userId, userRole }) {
 
                 {/* Liste des Drop Zones */}
                 <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-semibold text-lg">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+                    <h3 className="font-semibold text-base sm:text-lg">
                       📋 Drop Zones existantes ({dropZones.filter(dz => {
                         if (filterCountry === 'all') return true
-                        if (filterCountry === 'corse') return dz.name.toLowerCase().includes('corse') || dz.name.toLowerCase().includes('ajaccio') || dz.name.toLowerCase().includes('bastia') || dz.name.toLowerCase().includes('calvi') || dz.name.toLowerCase().includes('figari') || dz.name.toLowerCase().includes('porto-vecchio') || dz.name.toLowerCase().includes('bonifacio')
-                        if (filterCountry === 'france') return (dz.name.toLowerCase().includes('france') || dz.name.toLowerCase().includes('marseille') || dz.name.toLowerCase().includes('nice') || dz.name.toLowerCase().includes('cannes') || dz.name.toLowerCase().includes('monaco') || dz.name.toLowerCase().includes('saint-tropez') || dz.name.toLowerCase().includes('toulon') || dz.name.toLowerCase().includes('avignon') || dz.name.toLowerCase().includes('montpellier') || dz.name.toLowerCase().includes('perpignan') || dz.name.toLowerCase().includes('courchevel') || dz.name.toLowerCase().includes('méribel')) && !dz.name.toLowerCase().includes('corse')
-                        if (filterCountry === 'italie') return dz.name.toLowerCase().includes('italie') || dz.name.toLowerCase().includes('rome') || dz.name.toLowerCase().includes('milan') || dz.name.toLowerCase().includes('gênes') || dz.name.toLowerCase().includes('venise') || dz.name.toLowerCase().includes('sardaigne') || dz.name.toLowerCase().includes('cagliari') || dz.name.toLowerCase().includes('olbia') || dz.name.toLowerCase().includes('alghero')
-                        return true
+                        return dz.region === filterCountry
                       }).length})
                     </h3>
                     
@@ -1124,7 +1195,7 @@ export default function FlightLogModule({ userId, userRole }) {
                     <select
                       value={filterCountry}
                       onChange={(e) => setFilterCountry(e.target.value)}
-                      className="px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 text-sm w-full sm:w-auto"
                     >
                       <option value="all">🌍 Toutes les zones</option>
                       <option value="corse">🇫🇷 Corse</option>
@@ -1139,7 +1210,7 @@ export default function FlightLogModule({ userId, userRole }) {
                       if (filterCountry === 'all') return true
                       return dz.region === filterCountry
                     }).length === 0 ? (
-                      <div className="text-center py-8 text-gray-400">
+                      <div className="text-center py-8 text-gray-400 text-sm">
                         Aucune Drop Zone dans cette zone
                       </div>
                     ) : (
@@ -1149,11 +1220,11 @@ export default function FlightLogModule({ userId, userRole }) {
                       }).map(dz => (
                         <div 
                           key={dz.id} 
-                          className="p-3 border rounded-lg hover:bg-gray-50 flex justify-between items-start"
+                          className="p-2 sm:p-3 border rounded-lg hover:bg-gray-50 flex justify-between items-start"
                         >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="font-semibold">{dz.name}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <div className="font-semibold text-sm sm:text-base">{dz.name}</div>
                               {dz.region && (
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                                   dz.region === 'corse' ? 'bg-blue-100 text-blue-700' :
@@ -1169,8 +1240,8 @@ export default function FlightLogModule({ userId, userRole }) {
                                 </span>
                               )}
                             </div>
-                            <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                              <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                            <div className="text-xs sm:text-sm text-gray-600 mt-1 flex items-center gap-2">
+                              <span className="font-mono bg-gray-100 px-2 py-1 rounded text-[10px] sm:text-xs">
                                 📍 {dz.latitude}, {dz.longitude}
                               </span>
                             </div>
@@ -1181,7 +1252,7 @@ export default function FlightLogModule({ userId, userRole }) {
                             )}
                           </div>
                           
-                          <div className="flex gap-2 ml-4">
+                          <div className="flex gap-2 ml-4 flex-shrink-0">
                             <button
                               onClick={() => handleEditDropZone(dz)}
                               className="text-blue-500 hover:text-blue-700 px-2 py-1 text-sm"
@@ -1208,10 +1279,11 @@ export default function FlightLogModule({ userId, userRole }) {
                   <Button
                     onClick={() => {
                       setDzManagementOpen(false)
-                      setNewDropZone({ name: '', latitude: '', longitude: '', notes: '' })
+                      setNewDropZone({ name: '', latitude: '', longitude: '', notes: '', region: 'corse' })
                       setEditingDropZone(null)
                     }}
                     variant="outline"
+                    className="text-sm"
                   >
                     Fermer
                   </Button>
@@ -1222,7 +1294,7 @@ export default function FlightLogModule({ userId, userRole }) {
         </div>
       )}
 
-      {/* Modal édition d'un vol - CORRIGÉ */}
+      {/* Modal édition d'un vol */}
       {editingFlight && (
         <div 
           className="fixed inset-0 bg-white/95 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -1239,13 +1311,13 @@ export default function FlightLogModule({ userId, userRole }) {
             onClick={(e) => e.stopPropagation()}
           >
             <CardHeader>
-              <CardTitle>✏️ Modifier le vol</CardTitle>
+              <CardTitle className="text-base sm:text-xl">✏️ Modifier le vol</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 {/* Drop Zone de départ */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     📍 Drop Zone de départ
                   </label>
                   <input
@@ -1253,7 +1325,7 @@ export default function FlightLogModule({ userId, userRole }) {
                     value={editSearchDeparture}
                     onChange={(e) => setEditSearchDeparture(e.target.value)}
                     placeholder="Rechercher une DZ..."
-                    className="w-full p-3 border rounded-lg mb-2"
+                    className="w-full p-2 sm:p-3 border rounded-lg mb-2 text-sm"
                   />
                   {editSearchDeparture && (
                     <div className="border rounded-lg max-h-48 overflow-y-auto">
@@ -1267,7 +1339,7 @@ export default function FlightLogModule({ userId, userRole }) {
                               setEditDepartureDZ(dz)
                               setEditSearchDeparture('')
                             }}
-                            className="w-full text-left p-3 hover:bg-blue-50 border-b"
+                            className="w-full text-left p-2 sm:p-3 hover:bg-blue-50 border-b text-sm"
                           >
                             {dz.name}
                           </button>
@@ -1275,7 +1347,7 @@ export default function FlightLogModule({ userId, userRole }) {
                     </div>
                   )}
                   {editDepartureDZ && (
-                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg text-sm">
                       ✅ {editDepartureDZ.name}
                     </div>
                   )}
@@ -1283,7 +1355,7 @@ export default function FlightLogModule({ userId, userRole }) {
 
                 {/* Drop Zone d'arrivée */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     📍 Drop Zone d'arrivée
                   </label>
                   <input
@@ -1291,7 +1363,7 @@ export default function FlightLogModule({ userId, userRole }) {
                     value={editSearchArrival}
                     onChange={(e) => setEditSearchArrival(e.target.value)}
                     placeholder="Rechercher une DZ..."
-                    className="w-full p-3 border rounded-lg mb-2"
+                    className="w-full p-2 sm:p-3 border rounded-lg mb-2 text-sm"
                   />
                   {editSearchArrival && (
                     <div className="border rounded-lg max-h-48 overflow-y-auto">
@@ -1305,7 +1377,7 @@ export default function FlightLogModule({ userId, userRole }) {
                               setEditArrivalDZ(dz)
                               setEditSearchArrival('')
                             }}
-                            className="w-full text-left p-3 hover:bg-blue-50 border-b"
+                            className="w-full text-left p-2 sm:p-3 hover:bg-blue-50 border-b text-sm"
                           >
                             {dz.name}
                           </button>
@@ -1313,7 +1385,7 @@ export default function FlightLogModule({ userId, userRole }) {
                     </div>
                   )}
                   {editArrivalDZ && (
-                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg text-sm">
                       ✅ {editArrivalDZ.name}
                     </div>
                   )}
@@ -1323,7 +1395,7 @@ export default function FlightLogModule({ userId, userRole }) {
                 <div className="flex gap-2">
                   <Button
                     onClick={handleSaveEditFlight}
-                    className="flex-1 bg-green-500 hover:bg-green-600"
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-sm"
                   >
                     ✅ Enregistrer
                   </Button>
@@ -1336,7 +1408,7 @@ export default function FlightLogModule({ userId, userRole }) {
                       setEditSearchArrival('')
                     }}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 text-sm"
                   >
                     ✖️ Annuler
                   </Button>
@@ -1346,6 +1418,17 @@ export default function FlightLogModule({ userId, userRole }) {
           </Card>
         </div>
       )}
+
+
+      {/* 📊 MODALE STATISTIQUES */}
+      <StatsModal
+        isOpen={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+        allFlights={allFlights}
+        pilots={pilots}
+        userRole={userRole}
+        onResetData={handleResetAllData}
+      />
     </div>
   )
 }
