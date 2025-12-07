@@ -2,265 +2,460 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { ClipboardCheck, FileText, Download, Plus, Eye, Trash2, CheckCircle, AlertCircle } from 'lucide-react'
-import jsPDF from 'jspdf'
+import { FileText, Plus, Trash2, Eye, Printer, Calendar, Plane } from 'lucide-react'
+import { generatePVEPdf } from '../lib/pdfGenerator'
 
-export default function ManifestModule({ userId, userRole }) {
-  const [manifests, setManifests] = useState([])
+export default function PVEModule({ userId, userRole, username }) {
+  const [pves, setPves] = useState([])
+  const [aircraft, setAircraft] = useState([])
+  const [dropzones, setDropzones] = useState([])
+  const [pilots, setPilots] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [viewingManifest, setViewingManifest] = useState(null)
+  const [editingPve, setEditingPve] = useState(null)
+  const [flights, setFlights] = useState([])
+  const [loadingCases, setLoadingCases] = useState([])
   
-  // Données du formulaire
-  const [formData, setFormData] = useState({
-    flight_number: '',
-    aircraft_registration: '',
-    pilot_name: '',
-    departure: '',
-    destination: '',
-    scheduled_departure: '',
+  // États pour le PVE en cours de création/édition
+  const [pveData, setPveData] = useState({
+    flight_date: new Date().toISOString().split('T')[0],
+    numero_crm: '',
+    configuration_aeronef: 'Été 6 pax, Avec flottabilité',
+    aircraft_id: '',
+    pilot_name: username || ''
+  })
+
+  // État pour un nouveau vol
+  const [newFlight, setNewFlight] = useState({
+    flight_number: 1,
+    departure_dz_id: '',
+    arrival_dz_id: '',
+    estimated_duration: '',
+    bagages_kg: 0,
+    type_mission: 'TP',
     passengers: [],
-    weather_check: false,
-    fuel_check: false,
-    documents_check: false,
-    equipment_check: false,
-    exterior_check: false,
-    interior_check: false,
+    heure_deco: '',
+    heure_pose: '',
+    temps_vol_reel: '',
+    kerosene_deco: '',
+    kerosene_pose: '',
+    observations: '',
+    attente_heslo: '',
+    flight_case: '',
     notes: ''
   })
 
-  // Passagers temporaires
-  const [newPassenger, setNewPassenger] = useState({
-    nom: '',
-    prenom: '',
-    poids: '',
-    siege: ''
-  })
+  const [showAddFlightForm, setShowAddFlightForm] = useState(false)
+  const [searchDeparture, setSearchDeparture] = useState('')
+  const [searchArrival, setSearchArrival] = useState('')
+  const [showDepartureResults, setShowDepartureResults] = useState(false)
+  const [showArrivalResults, setShowArrivalResults] = useState(false)
 
   useEffect(() => {
-    loadManifests()
+    loadPves()
+    loadAircraft()
+    loadDropzones()
+    loadPilots()
   }, [])
 
-  const loadManifests = async () => {
+  const loadPves = async () => {
     const { data, error } = await supabase
       .from('manifests')
-      .select('*')
+      .select(`
+        *,
+        aircraft:aircraft_id(registration, model)
+      `)
+      .eq('is_archived', false)
       .order('created_at', { ascending: false })
 
     if (data) {
-      setManifests(data)
+      setPves(data)
     } else {
-      console.error('Erreur chargement manifests:', error)
+      console.error('Erreur chargement PVE:', error)
     }
     setLoading(false)
   }
 
-  const resetForm = () => {
-    setFormData({
-      flight_number: '',
-      aircraft_registration: '',
-      pilot_name: '',
-      departure: '',
-      destination: '',
-      scheduled_departure: '',
-      passengers: [],
-      weather_check: false,
-      fuel_check: false,
-      documents_check: false,
-      equipment_check: false,
-      exterior_check: false,
-      interior_check: false,
-      notes: ''
-    })
-    setNewPassenger({ nom: '', prenom: '', poids: '', siege: '' })
-    setShowCreateForm(false)
+  const loadAircraft = async () => {
+    const { data } = await supabase
+      .from('aircraft')
+      .select('*')
+      .eq('actif', true)
+      .order('registration', { ascending: true })
+
+    if (data) setAircraft(data)
   }
 
-  const addPassenger = () => {
-    if (newPassenger.nom && newPassenger.prenom) {
-      setFormData({
-        ...formData,
-        passengers: [...formData.passengers, { ...newPassenger }]
-      })
-      setNewPassenger({ nom: '', prenom: '', poids: '', siege: '' })
+  const loadDropzones = async () => {
+    const { data, error } = await supabase
+      .from('drop_zones')
+      .select('*')
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error('Erreur chargement DZ:', error)
+    } else if (data) {
+      console.log('✅ DZ chargées:', data.length, data.slice(0, 3))
+      setDropzones(data)
     } else {
-      alert('⚠️ Veuillez remplir au minimum nom et prénom')
+      console.log('⚠️ Aucune DZ retournée')
     }
+  }
+
+  const loadPilots = async () => {
+    const { data } = await supabase
+      .from('users')
+      .select('id, nom, prenom')
+      .eq('role', 'pilote')
+      .order('nom', { ascending: true })
+
+    if (data) {
+      setPilots(data.map(p => ({
+        id: p.id,
+        fullName: `${p.prenom} ${p.nom}`
+      })))
+    }
+  }
+
+  const loadFlights = async (pveId) => {
+    const { data } = await supabase
+      .from('manifest_flights')
+      .select('*')
+      .eq('manifest_id', pveId)
+      .order('flight_number', { ascending: true })
+
+    if (data) {
+      // Convertir en format éditable avec les noms de DZ
+      const flightsWithNames = data.map(f => ({
+        ...f,
+        departure_name: dropzones.find(d => d.id === f.departure_dz_id)?.name || '',
+        arrival_name: dropzones.find(d => d.id === f.arrival_dz_id)?.name || ''
+      }))
+      setFlights(flightsWithNames)
+    }
+  }
+
+  const loadLoadingCasesForAircraft = async (aircraftId) => {
+    const { data } = await supabase
+      .from('loading_cases')
+      .select('*')
+      .eq('aircraft_id', aircraftId)
+      .order('case_number', { ascending: true })
+
+    if (data) setLoadingCases(data)
+  }
+
+  // Calculer le cas de vol selon les passagers
+  const calculateLoadingCase = (passengers) => {
+    if (passengers.length === 0) return null
+
+    const hommes = passengers.filter(p => p.type === 'H').length
+    const femmes = passengers.filter(p => p.type === 'F').length
+    const enfants = passengers.filter(p => p.type === 'E').length
+    const total = hommes + femmes + enfants
+
+    // Trouver le cas correspondant
+    const matchingCase = loadingCases.find(c => 
+      c.nb_pax === total &&
+      c.hommes === hommes &&
+      c.femmes === femmes &&
+      c.enfants === enfants
+    )
+
+    return matchingCase
+  }
+
+  // Calculer le kérosène maximum selon cas + bagages
+  const calculateMaxKerosene = (cas, bagagesKg) => {
+    if (!cas || cas.carburant_max_pct === 0) return 0
+    
+    // Réduction de 5% tous les 20kg de bagages
+    const baggageReduction = Math.floor(bagagesKg / 20) * 5
+    const finalPct = Math.max(0, cas.carburant_max_pct - baggageReduction)
+    
+    return finalPct
+  }
+
+  const resetPveForm = () => {
+    setPveData({
+      flight_date: new Date().toISOString().split('T')[0],
+      numero_crm: '',
+      configuration_aeronef: 'Été 6 pax, Avec flottabilité',
+      aircraft_id: '',
+      pilot_name: username || ''
+    })
+    setFlights([])
+    setEditingPve(null)
+    setShowCreateForm(false)
+    setShowAddFlightForm(false)
+  }
+
+  const resetFlightForm = () => {
+    setNewFlight({
+      flight_number: flights.length + 1,
+      departure_dz_id: '',
+      arrival_dz_id: '',
+      estimated_duration: '',
+      bagages_kg: 0,
+      type_mission: 'TP',
+      passengers: [],
+      heure_deco: '',
+      heure_pose: '',
+      temps_vol_reel: '',
+      kerosene_deco: '',
+      kerosene_pose: '',
+      observations: '',
+      attente_heslo: '',
+      flight_case: '',
+      notes: ''
+    })
+    setSearchDeparture('')
+    setSearchArrival('')
+    setShowDepartureResults(false)
+    setShowArrivalResults(false)
+    setShowAddFlightForm(false)
+  }
+
+  const filteredDepartureDropzones = !searchDeparture 
+    ? dropzones 
+    : dropzones.filter(dz => {
+        const search = searchDeparture.toLowerCase()
+        const name = (dz.name || '').toLowerCase()
+        const shortCode = (dz.short_code || '').toLowerCase()
+        const oaciCode = (dz.oaci_code || '').toLowerCase()
+        return name.includes(search) || shortCode.includes(search) || oaciCode.includes(search)
+      })
+
+  const filteredArrivalDropzones = !searchArrival 
+    ? dropzones 
+    : dropzones.filter(dz => {
+        const search = searchArrival.toLowerCase()
+        const name = (dz.name || '').toLowerCase()
+        const shortCode = (dz.short_code || '').toLowerCase()
+        const oaciCode = (dz.oaci_code || '').toLowerCase()
+        return name.includes(search) || shortCode.includes(search) || oaciCode.includes(search)
+      })
+
+  const selectDeparture = (dz) => {
+    setNewFlight({ ...newFlight, departure_dz_id: dz.id })
+    setSearchDeparture(dz.name)
+    setShowDepartureResults(false)
+  }
+
+  const selectArrival = (dz) => {
+    setNewFlight({ ...newFlight, arrival_dz_id: dz.id })
+    setSearchArrival(dz.name)
+    setShowArrivalResults(false)
+  }
+
+  const startCreatePve = () => {
+    setShowCreateForm(true)
+    setPveData({
+      ...pveData,
+      pilot_name: username || ''
+    })
+  }
+
+  const savePve = async () => {
+    if (!pveData.aircraft_id) {
+      alert('⚠️ Veuillez sélectionner un appareil')
+      return
+    }
+
+    const selectedAircraft = aircraft.find(a => a.id === pveData.aircraft_id)
+
+    const pveToSave = {
+      flight_date: pveData.flight_date,
+      numero_crm: pveData.numero_crm,
+      configuration_aeronef: pveData.configuration_aeronef,
+      aircraft_id: pveData.aircraft_id,
+      aircraft_registration: selectedAircraft?.registration,
+      type_aeronef: selectedAircraft?.model,
+      pilot_name: pveData.pilot_name,
+      is_archived: false
+    }
+
+    let pveId = editingPve?.id
+
+    if (editingPve) {
+      // Mise à jour
+      const { error } = await supabase
+        .from('manifests')
+        .update(pveToSave)
+        .eq('id', editingPve.id)
+
+      if (error) {
+        console.error('Erreur mise à jour PVE:', error)
+        alert('❌ Erreur lors de la mise à jour')
+        return
+      }
+    } else {
+      // Création
+      const { data, error } = await supabase
+        .from('manifests')
+        .insert([pveToSave])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erreur création PVE:', error)
+        alert('❌ Erreur lors de la création')
+        return
+      }
+
+      pveId = data.id
+      setEditingPve(data)
+    }
+
+    // Sauvegarder tous les vols
+    if (flights.length > 0) {
+      // Supprimer les anciens vols
+      await supabase
+        .from('manifest_flights')
+        .delete()
+        .eq('manifest_id', pveId)
+
+      // Insérer les nouveaux
+      const flightsToInsert = flights.map((f, idx) => ({
+        manifest_id: pveId,
+        flight_number: idx + 1,
+        departure_dz_id: f.departure_dz_id,
+        departure_name: dropzones.find(d => d.id === f.departure_dz_id)?.name || '',
+        arrival_dz_id: f.arrival_dz_id,
+        arrival_name: dropzones.find(d => d.id === f.arrival_dz_id)?.name || '',
+        estimated_duration: f.estimated_duration ? parseInt(f.estimated_duration) : null,
+        bagages_kg: f.bagages_kg ? parseInt(f.bagages_kg) : 0,
+        type_mission: f.type_mission,
+        passengers: f.passengers,
+        heure_deco: f.heure_deco || null,
+        heure_pose: f.heure_pose || null,
+        temps_vol_reel: f.temps_vol_reel ? parseInt(f.temps_vol_reel) : null,
+        kerosene_deco: f.kerosene_deco ? parseInt(f.kerosene_deco) : null,
+        kerosene_pose: f.kerosene_pose ? parseInt(f.kerosene_pose) : null,
+        observations: f.observations || '',
+        attente_heslo: f.attente_heslo || '',
+        flight_case: f.flight_case || '',
+        notes: f.notes || '',
+        cas_vol: f.cas_vol || null
+      }))
+
+      const { error: flightsError } = await supabase
+        .from('manifest_flights')
+        .insert(flightsToInsert)
+
+      if (flightsError) {
+        console.error('Erreur sauvegarde vols:', flightsError)
+        alert('❌ Erreur lors de la sauvegarde des vols')
+        return
+      }
+    }
+
+    alert('✅ PVE enregistré')
+    loadPves()
+    resetPveForm()
+  }
+
+  const addFlightToPve = () => {
+    // Calculer le cas de vol
+    const cas = calculateLoadingCase(newFlight.passengers)
+    const keroseneMax = cas ? calculateMaxKerosene(cas, newFlight.bagages_kg || 0) : 0
+
+    const flightToAdd = {
+      ...newFlight,
+      flight_number: flights.length + 1,
+      cas_vol: cas?.case_number || null,
+      kerosene_max_pct: keroseneMax
+    }
+
+    setFlights([...flights, flightToAdd])
+    resetFlightForm()
+  }
+
+  const removeFlightFromPve = (index) => {
+    const updatedFlights = flights.filter((_, i) => i !== index)
+    setFlights(updatedFlights)
+  }
+
+  const addPassengerToFlight = () => {
+    if (newFlight.passengers.length >= 6) {
+      alert('⚠️ Maximum 6 passagers par vol')
+      return
+    }
+
+    setNewFlight({
+      ...newFlight,
+      passengers: [...newFlight.passengers, { name: '', type: 'H' }]
+    })
+  }
+
+  const updatePassenger = (index, field, value) => {
+    const updatedPassengers = [...newFlight.passengers]
+    updatedPassengers[index][field] = value
+    setNewFlight({ ...newFlight, passengers: updatedPassengers })
   }
 
   const removePassenger = (index) => {
-    setFormData({
-      ...formData,
-      passengers: formData.passengers.filter((_, i) => i !== index)
-    })
+    const updatedPassengers = newFlight.passengers.filter((_, i) => i !== index)
+    setNewFlight({ ...newFlight, passengers: updatedPassengers })
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    // Validation
-    if (!formData.flight_number || !formData.aircraft_registration || !formData.pilot_name) {
-      alert('⚠️ Veuillez remplir les champs obligatoires (N° vol, immatriculation, pilote)')
-      return
-    }
-
-    const manifestData = {
-      ...formData,
-      created_by: userId,
-      status: 'draft'
-    }
+  const deletePve = async (id) => {
+    if (!window.confirm('⚠️ Supprimer ce PVE ?')) return
 
     const { error } = await supabase
       .from('manifests')
-      .insert([manifestData])
-
-    if (!error) {
-      alert('✅ Manifest créé')
-      loadManifests()
-      resetForm()
-    } else {
-      console.error('Erreur création manifest:', error)
-      alert('❌ Erreur lors de la création')
-    }
-  }
-
-  const validateManifest = async (id) => {
-    const manifest = manifests.find(m => m.id === id)
-    
-    // Vérifier que toutes les checklist sont cochées
-    const allChecked = manifest.weather_check && 
-                      manifest.fuel_check && 
-                      manifest.documents_check && 
-                      manifest.equipment_check && 
-                      manifest.exterior_check && 
-                      manifest.interior_check
-
-    if (!allChecked) {
-      alert('⚠️ Veuillez compléter toutes les vérifications avant de valider')
-      return
-    }
-
-    const { error } = await supabase
-      .from('manifests')
-      .update({ 
-        status: 'validated',
-        validated_at: new Date().toISOString(),
-        validated_by: userId
-      })
+      .update({ is_archived: true })
       .eq('id', id)
 
     if (!error) {
-      alert('✅ Manifest validé')
-      loadManifests()
+      loadPves()
+      alert('✅ PVE supprimé')
     }
   }
 
-  const deleteManifest = async (id, flightNumber) => {
-    if (!confirm(`Supprimer le manifest du vol ${flightNumber} ?`)) return
-
-    const { error } = await supabase
-      .from('manifests')
-      .delete()
-      .eq('id', id)
-
-    if (!error) {
-      alert('✅ Manifest supprimé')
-      loadManifests()
-    }
-  }
-
-  const generatePDF = (manifest) => {
-    const doc = new jsPDF()
-    const pageWidth = doc.internal.pageSize.getWidth()
-    
-    // En-tête
-    doc.setFontSize(20)
-    doc.text('MANIFEST DE VOL', pageWidth / 2, 20, { align: 'center' })
-    
-    doc.setFontSize(10)
-    doc.text(`N° Vol: ${manifest.flight_number}`, 20, 35)
-    doc.text(`Immatriculation: ${manifest.aircraft_registration}`, 20, 42)
-    doc.text(`Pilote: ${manifest.pilot_name}`, 20, 49)
-    
-    doc.text(`Départ: ${manifest.departure}`, 120, 35)
-    doc.text(`Destination: ${manifest.destination}`, 120, 42)
-    doc.text(`Heure prévue: ${manifest.scheduled_departure}`, 120, 49)
-    
-    // Passagers
-    doc.setFontSize(14)
-    doc.text('PASSAGERS', 20, 65)
-    
-    doc.setFontSize(10)
-    let yPos = 75
-    manifest.passengers.forEach((pax, idx) => {
-      doc.text(`${idx + 1}. ${pax.prenom} ${pax.nom}`, 25, yPos)
-      if (pax.poids) doc.text(`Poids: ${pax.poids} kg`, 100, yPos)
-      if (pax.siege) doc.text(`Siège: ${pax.siege}`, 140, yPos)
-      yPos += 7
+  const openEditPve = async (pve) => {
+    setEditingPve(pve)
+    setPveData({
+      flight_date: pve.flight_date,
+      numero_crm: pve.numero_crm || '',
+      configuration_aeronef: pve.configuration_aeronef || 'Été 6 pax, Avec flottabilité',
+      aircraft_id: pve.aircraft_id,
+      pilot_name: pve.pilot_name || ''
     })
     
-    // Checklist
-    yPos += 10
-    doc.setFontSize(14)
-    doc.text('CHECKLIST PRÉ-VOL', 20, yPos)
-    
-    yPos += 10
-    doc.setFontSize(10)
-    const checks = [
-      { label: 'Météo vérifiée', value: manifest.weather_check },
-      { label: 'Carburant vérifié', value: manifest.fuel_check },
-      { label: 'Documents vérifiés', value: manifest.documents_check },
-      { label: 'Équipements vérifiés', value: manifest.equipment_check },
-      { label: 'Inspection extérieure', value: manifest.exterior_check },
-      { label: 'Inspection intérieure', value: manifest.interior_check }
-    ]
-    
-    checks.forEach(check => {
-      doc.text(`${check.value ? '☑' : '☐'} ${check.label}`, 25, yPos)
-      yPos += 7
-    })
-    
-    // Notes
-    if (manifest.notes) {
-      yPos += 10
-      doc.setFontSize(14)
-      doc.text('NOTES', 20, yPos)
-      yPos += 10
-      doc.setFontSize(10)
-      const splitNotes = doc.splitTextToSize(manifest.notes, pageWidth - 40)
-      doc.text(splitNotes, 20, yPos)
+    // Charger les cas de vol pour l'appareil
+    if (pve.aircraft_id) {
+      await loadLoadingCasesForAircraft(pve.aircraft_id)
     }
     
-    // Pied de page
-    const pageHeight = doc.internal.pageSize.getHeight()
-    doc.setFontSize(8)
-    doc.text(`Créé le ${new Date(manifest.created_at).toLocaleString('fr-FR')}`, 20, pageHeight - 20)
-    if (manifest.status === 'validated') {
-      doc.text(`Validé le ${new Date(manifest.validated_at).toLocaleString('fr-FR')}`, 20, pageHeight - 15)
-    }
-    
-    // Télécharger
-    doc.save(`Manifest_${manifest.flight_number}_${new Date().toISOString().split('T')[0]}.pdf`)
+    // Charger les vols
+    await loadFlights(pve.id)
+    setShowCreateForm(true)
   }
 
-  // Statistiques
-  const stats = {
-    total: manifests.length,
-    draft: manifests.filter(m => m.status === 'draft').length,
-    validated: manifests.filter(m => m.status === 'validated').length,
-    thisMonth: manifests.filter(m => {
-      const created = new Date(m.created_at)
-      const now = new Date()
-      return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
-    }).length
+  const previewPdf = () => {
+    generatePVEPdf(pveData, flights, dropzones)
   }
 
-  // Badge statut
-  const getStatusBadge = (status) => {
-    if (status === 'validated') {
-      return { color: 'bg-green-100 text-green-700', icon: <CheckCircle size={14} />, label: '✓ Validé' }
+  const previewExistingPvePdf = async (pve) => {
+    // Charger les vols du PVE
+    const { data: pveFlights } = await supabase
+      .from('manifest_flights')
+      .select('*')
+      .eq('manifest_id', pve.id)
+      .order('flight_number', { ascending: true })
+
+    if (pveFlights) {
+      const pveDataForPdf = {
+        flight_date: pve.flight_date,
+        numero_crm: pve.numero_crm,
+        configuration_aeronef: pve.configuration_aeronef,
+        type_aeronef: pve.type_aeronef,
+        aircraft_registration: pve.aircraft_registration,
+        pilot_name: pve.pilot_name
+      }
+      generatePVEPdf(pveDataForPdf, pveFlights, dropzones)
     }
-    return { color: 'bg-orange-100 text-orange-700', icon: <AlertCircle size={14} />, label: '⏳ Brouillon' }
   }
 
   if (loading) {
@@ -268,392 +463,479 @@ export default function ManifestModule({ userId, userRole }) {
   }
 
   return (
-    <div className="space-y-2 sm:space-y-4 sm:space-y-3 sm:space-y-6">
-      {/* Statistiques */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-2 sm:gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
-          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
-            <div className="text-xs sm:text-sm text-blue-600 mb-1">Total Manifests</div>
-            <div className="text-2xl sm:text-3xl font-bold text-blue-900">{stats.total}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100">
-          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
-            <div className="text-xs sm:text-sm text-orange-600 mb-1">Brouillons</div>
-            <div className="text-2xl sm:text-3xl font-bold text-orange-900">{stats.draft}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100">
-          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
-            <div className="text-xs sm:text-sm text-green-600 mb-1">Validés</div>
-            <div className="text-2xl sm:text-3xl font-bold text-green-900">{stats.validated}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
-          <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
-            <div className="text-xs sm:text-sm text-purple-600 mb-1">Ce mois</div>
-            <div className="text-2xl sm:text-3xl font-bold text-purple-900">{stats.thisMonth}</div>
-          </CardContent>
-        </Card>
-      </div>
-
+    <div className="space-y-3 sm:space-y-6">
       {/* En-tête */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <h3 className="text-lg sm:text-xl font-semibold">
-          📋 PVE / Manifests de vol
-        </h3>
-        <Button onClick={() => setShowCreateForm(!showCreateForm)} className="w-full sm:w-auto text-sm">
-          <Plus size={18} className="mr-2" />
-          Nouveau Manifest
-        </Button>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <FileText size={24} />
+            PVE Réduit
+          </h2>
+          <p className="text-sm text-gray-600">{pves.length} PVE enregistré{pves.length > 1 ? 's' : ''}</p>
+        </div>
+        {!showCreateForm && (
+          <Button
+            onClick={startCreatePve}
+            className="w-full sm:w-auto text-sm bg-green-500 hover:bg-green-600"
+          >
+            <Plus size={16} className="mr-1" />
+            Créer un PVE réduit
+          </Button>
+        )}
       </div>
 
-      {/* Formulaire de création */}
+      {/* Formulaire création/édition PVE */}
       {showCreateForm && (
-        <Card className="border-2 border-blue-500">
-          <CardHeader className="bg-blue-50 p-3 sm:p-6">
-            <CardTitle className="text-base sm:text-xl">➕ Créer un nouveau manifest</CardTitle>
+        <Card className="border-2 border-green-200">
+          <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-3 sm:p-6">
+            <CardTitle className="text-base sm:text-xl">
+              {editingPve ? '✏️ Modifier le PVE' : '➕ Nouveau PVE réduit'}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="pt-4 sm:pt-3 sm:pt-6">
-            <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-4 sm:space-y-3 sm:space-y-6">
-              {/* Infos vol */}
+          <CardContent className="pt-4 space-y-4">
+            {/* EN-TÊTE DU PVE */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Date du vol */}
               <div>
-                <h4 className="font-semibold mb-3 text-sm sm:text-base">✈️ Informations vol</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-2 sm:gap-4">
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1">N° Vol *</label>
-                    <input
-                      type="text"
-                      value={formData.flight_number}
-                      onChange={(e) => setFormData({ ...formData, flight_number: e.target.value })}
-                      placeholder="Ex: JSHS001"
-                      className="w-full p-2 border rounded-lg text-sm"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1">Immatriculation *</label>
-                    <input
-                      type="text"
-                      value={formData.aircraft_registration}
-                      onChange={(e) => setFormData({ ...formData, aircraft_registration: e.target.value })}
-                      placeholder="Ex: F-HELI"
-                      className="w-full p-2 border rounded-lg text-sm"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1">Pilote *</label>
-                    <input
-                      type="text"
-                      value={formData.pilot_name}
-                      onChange={(e) => setFormData({ ...formData, pilot_name: e.target.value })}
-                      placeholder="Nom du pilote"
-                      className="w-full p-2 border rounded-lg text-sm"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1">Heure prévue</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.scheduled_departure}
-                      onChange={(e) => setFormData({ ...formData, scheduled_departure: e.target.value })}
-                      className="w-full p-2 border rounded-lg text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1">Départ</label>
-                    <input
-                      type="text"
-                      value={formData.departure}
-                      onChange={(e) => setFormData({ ...formData, departure: e.target.value })}
-                      placeholder="Ex: Figari"
-                      className="w-full p-2 border rounded-lg text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1">Destination</label>
-                    <input
-                      type="text"
-                      value={formData.destination}
-                      onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                      placeholder="Ex: Ajaccio"
-                      className="w-full p-2 border rounded-lg text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Passagers */}
-              <div>
-                <h4 className="font-semibold mb-3 text-sm sm:text-base">👥 Passagers ({formData.passengers.length})</h4>
-                
-                {/* Liste passagers */}
-                {formData.passengers.length > 0 && (
-                  <div className="mb-3 space-y-2">
-                    {formData.passengers.map((pax, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                        <div>
-                          <span className="font-semibold">{pax.prenom} {pax.nom}</span>
-                          {pax.poids && <span className="text-gray-600 ml-2">({pax.poids} kg)</span>}
-                          {pax.siege && <span className="text-gray-600 ml-2">Siège {pax.siege}</span>}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removePassenger(idx)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Ajouter passager */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                  <input
-                    type="text"
-                    value={newPassenger.nom}
-                    onChange={(e) => setNewPassenger({ ...newPassenger, nom: e.target.value })}
-                    placeholder="Nom"
-                    className="p-2 border rounded text-sm"
-                  />
-                  <input
-                    type="text"
-                    value={newPassenger.prenom}
-                    onChange={(e) => setNewPassenger({ ...newPassenger, prenom: e.target.value })}
-                    placeholder="Prénom"
-                    className="p-2 border rounded text-sm"
-                  />
-                  <input
-                    type="number"
-                    value={newPassenger.poids}
-                    onChange={(e) => setNewPassenger({ ...newPassenger, poids: e.target.value })}
-                    placeholder="Poids (kg)"
-                    className="p-2 border rounded text-sm"
-                  />
-                  <input
-                    type="text"
-                    value={newPassenger.siege}
-                    onChange={(e) => setNewPassenger({ ...newPassenger, siege: e.target.value })}
-                    placeholder="Siège"
-                    className="p-2 border rounded text-sm"
-                  />
-                  <Button type="button" onClick={addPassenger} size="sm" className="text-xs">
-                    + Ajouter
-                  </Button>
-                </div>
-              </div>
-
-              {/* Checklist */}
-              <div>
-                <h4 className="font-semibold mb-3 text-sm sm:text-base">✅ Checklist pré-vol</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-                  {[
-                    { key: 'weather_check', label: '🌤️ Météo vérifiée' },
-                    { key: 'fuel_check', label: '⛽ Carburant vérifié' },
-                    { key: 'documents_check', label: '📄 Documents vérifiés' },
-                    { key: 'equipment_check', label: '🎒 Équipements vérifiés' },
-                    { key: 'exterior_check', label: '🔍 Inspection extérieure' },
-                    { key: 'interior_check', label: '🪑 Inspection intérieure' }
-                  ].map(item => (
-                    <label key={item.key} className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer text-sm">
-                      <input
-                        type="checkbox"
-                        checked={formData[item.key]}
-                        onChange={(e) => setFormData({ ...formData, [item.key]: e.target.checked })}
-                        className="w-4 h-4"
-                      />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">📝 Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Remarques, conditions particulières..."
+                <label className="block text-xs sm:text-sm font-medium mb-1">
+                  📅 Date du vol
+                </label>
+                <input
+                  type="date"
+                  value={pveData.flight_date}
+                  onChange={(e) => setPveData({ ...pveData, flight_date: e.target.value })}
                   className="w-full p-2 border rounded-lg text-sm"
-                  rows="3"
                 />
               </div>
 
-              {/* Boutons */}
-              <div className="flex gap-2">
-                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-sm">
-                  ✅ Créer le manifest
-                </Button>
-                <Button type="button" onClick={resetForm} variant="ghost" className="text-sm">
-                  Annuler
+              {/* Numéro CRM */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1">
+                  Numéro CRM
+                </label>
+                <input
+                  type="text"
+                  value={pveData.numero_crm}
+                  onChange={(e) => setPveData({ ...pveData, numero_crm: e.target.value })}
+                  placeholder="Ex: CRM-2024-001"
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+              </div>
+
+              {/* Appareil */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1">
+                  ✈️ Type aéronef
+                </label>
+                <select
+                  value={pveData.aircraft_id}
+                  onChange={async (e) => {
+                    setPveData({ ...pveData, aircraft_id: e.target.value })
+                    if (e.target.value) {
+                      await loadLoadingCasesForAircraft(e.target.value)
+                    }
+                  }}
+                  className="w-full p-2 border rounded-lg text-sm"
+                >
+                  <option value="">-- Sélectionner un appareil --</option>
+                  {aircraft.map(ac => (
+                    <option key={ac.id} value={ac.id}>
+                      {ac.registration} - {ac.model}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Nom CDB */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1">
+                  👨‍✈️ Nom, Prénom CDB
+                </label>
+                {userRole === 'agent_sol' ? (
+                  <select
+                    value={pveData.pilot_name}
+                    onChange={(e) => setPveData({ ...pveData, pilot_name: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  >
+                    <option value="">-- Sélectionner un pilote --</option>
+                    {pilots.map(p => (
+                      <option key={p.id} value={p.fullName}>{p.fullName}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={pveData.pilot_name}
+                    readOnly
+                    className="w-full p-2 border rounded-lg text-sm bg-gray-50"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Configuration (read-only pour le moment) */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium mb-1">
+                ⚙️ Configuration aéronef
+              </label>
+              <input
+                type="text"
+                value={pveData.configuration_aeronef}
+                readOnly
+                className="w-full p-2 border rounded-lg text-sm bg-gray-50"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Par défaut: Été 6 pax, Avec flottabilité
+              </p>
+            </div>
+
+            <hr className="my-4" />
+
+            {/* LISTE DES VOLS */}
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-lg">✈️ Vols ({flights.length})</h3>
+                <Button
+                  onClick={() => setShowAddFlightForm(!showAddFlightForm)}
+                  size="sm"
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  <Plus size={14} className="mr-1" />
+                  Ajouter un vol
                 </Button>
               </div>
-            </form>
+
+              {/* Formulaire ajout vol */}
+              {showAddFlightForm && (
+                <Card className="mb-3 border-2 border-blue-200">
+                  <CardContent className="pt-4 space-y-3">
+                    <h4 className="font-semibold text-sm">Vol #{flights.length + 1}</h4>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Type mission */}
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Type mission</label>
+                        <select
+                          value={newFlight.type_mission}
+                          onChange={(e) => setNewFlight({ ...newFlight, type_mission: e.target.value })}
+                          className="w-full p-2 border rounded-lg text-sm"
+                        >
+                          <option value="TP">TP (Transport Passagers)</option>
+                          <option value="MEP">MEP (Mise En Place)</option>
+                        </select>
+                      </div>
+
+                      {/* Masse bagages */}
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Bagages (kg)</label>
+                        <input
+                          type="number"
+                          value={newFlight.bagages_kg}
+                          onChange={(e) => setNewFlight({ ...newFlight, bagages_kg: e.target.value })}
+                          className="w-full p-2 border rounded-lg text-sm"
+                        />
+                      </div>
+
+                      {/* Départ */}
+                      <div className="relative">
+                        <label className="block text-xs font-medium mb-1">Départ</label>
+                        <input
+                          type="text"
+                          value={searchDeparture}
+                          onChange={(e) => setSearchDeparture(e.target.value)}
+                          onFocus={() => setShowDepartureResults(true)}
+                          onBlur={() => setTimeout(() => setShowDepartureResults(false), 200)}
+                          placeholder="Rechercher une DZ..."
+                          className="w-full p-2 border rounded-lg text-sm"
+                        />
+                        {showDepartureResults && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {filteredDepartureDropzones.length === 0 ? (
+                              <div className="p-2 text-sm text-gray-400">
+                                {dropzones.length === 0 ? 'Chargement...' : 'Aucune DZ trouvée'}
+                              </div>
+                            ) : (
+                              filteredDepartureDropzones.slice(0, 10).map(dz => (
+                                <button
+                                  key={dz.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    selectDeparture(dz)
+                                  }}
+                                  className="w-full text-left p-2 hover:bg-blue-50 text-sm border-b last:border-b-0"
+                                >
+                                  <span className="font-semibold text-blue-600">{dz.short_code || dz.oaci_code}</span> - {dz.name}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Arrivée */}
+                      <div className="relative">
+                        <label className="block text-xs font-medium mb-1">Arrivée</label>
+                        <input
+                          type="text"
+                          value={searchArrival}
+                          onChange={(e) => setSearchArrival(e.target.value)}
+                          onFocus={() => setShowArrivalResults(true)}
+                          onBlur={() => setTimeout(() => setShowArrivalResults(false), 200)}
+                          placeholder="Rechercher une DZ..."
+                          className="w-full p-2 border rounded-lg text-sm"
+                        />
+                        {showArrivalResults && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {filteredArrivalDropzones.length === 0 ? (
+                              <div className="p-2 text-sm text-gray-400">
+                                {dropzones.length === 0 ? 'Chargement...' : 'Aucune DZ trouvée'}
+                              </div>
+                            ) : (
+                              filteredArrivalDropzones.slice(0, 10).map(dz => (
+                                <button
+                                  key={dz.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    selectArrival(dz)
+                                  }}
+                                  className="w-full text-left p-2 hover:bg-blue-50 text-sm border-b last:border-b-0"
+                                >
+                                  <span className="font-semibold text-blue-600">{dz.short_code || dz.oaci_code}</span> - {dz.name}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Temps vol prévu */}
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Temps vol prévu (min)</label>
+                        <input
+                          type="number"
+                          value={newFlight.estimated_duration}
+                          onChange={(e) => setNewFlight({ ...newFlight, estimated_duration: e.target.value })}
+                          className="w-full p-2 border rounded-lg text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Passagers */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-xs font-medium">Passagers (max 6)</label>
+                        <Button
+                          onClick={addPassengerToFlight}
+                          size="sm"
+                          variant="outline"
+                          disabled={newFlight.passengers.length >= 6}
+                        >
+                          + Ajouter
+                        </Button>
+                      </div>
+                      {newFlight.passengers.map((pax, idx) => (
+                        <div key={idx} className="flex gap-2 mb-2">
+                          <input
+                            type="text"
+                            value={pax.name}
+                            onChange={(e) => updatePassenger(idx, 'name', e.target.value)}
+                            placeholder="Nom du passager"
+                            className="flex-1 p-2 border rounded-lg text-sm"
+                          />
+                          <select
+                            value={pax.type}
+                            onChange={(e) => updatePassenger(idx, 'type', e.target.value)}
+                            className="p-2 border rounded-lg text-sm"
+                          >
+                            <option value="H">H (Homme)</option>
+                            <option value="F">F (Femme)</option>
+                            <option value="E">E (Enfant)</option>
+                          </select>
+                          <button
+                            onClick={() => removePassenger(idx)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                      {newFlight.passengers.length === 0 && (
+                        <p className="text-xs text-gray-400 italic">Aucun passager ajouté</p>
+                      )}
+                    </div>
+
+                    {/* Cas de vol calculé */}
+                    {newFlight.passengers.length > 0 && (() => {
+                      const cas = calculateLoadingCase(newFlight.passengers)
+                      const keroseneMax = cas ? calculateMaxKerosene(cas, newFlight.bagages_kg || 0) : 0
+                      return (
+                        <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                          <p className="text-xs font-semibold">
+                            📊 Cas de vol: <span className="text-blue-600">{cas ? `#${cas.case_number}` : 'Non trouvé'}</span>
+                          </p>
+                          {cas && (
+                            <p className="text-xs">
+                              ⛽ Kérosène max: <span className={keroseneMax === 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>{keroseneMax}%</span>
+                              {keroseneMax === 0 && <span className="ml-2 text-red-600">⚠️ VOL IMPOSSIBLE</span>}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })()}
+
+                    {/* Boutons */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        onClick={addFlightToPve}
+                        className="flex-1 bg-green-500 hover:bg-green-600"
+                      >
+                        ✅ Ajouter ce vol
+                      </Button>
+                      <Button
+                        onClick={resetFlightForm}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Liste des vols ajoutés */}
+              {flights.length === 0 ? (
+                <p className="text-sm text-gray-400 italic text-center py-4">
+                  Aucun vol ajouté au PVE
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {flights.map((flight, idx) => (
+                    <Card key={idx} className="border-l-4 border-blue-500">
+                      <CardContent className="p-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-bold text-sm">
+                              Vol #{idx + 1} - {flight.type_mission}
+                            </h4>
+                            <p className="text-xs text-gray-600">
+                              {dropzones.find(d => d.id === flight.departure_dz_id)?.name || 'N/A'} → {dropzones.find(d => d.id === flight.arrival_dz_id)?.name || 'N/A'}
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {flight.passengers.length} passager{flight.passengers.length > 1 ? 's' : ''} 
+                              {flight.bagages_kg > 0 && ` - ${flight.bagages_kg}kg bagages`}
+                            </p>
+                            {flight.cas_vol && (
+                              <p className="text-xs">
+                                <span className="font-semibold">Cas:</span> #{flight.cas_vol} - 
+                                <span className={flight.kerosene_max_pct === 0 ? 'text-red-600 font-bold' : 'text-green-600'}>
+                                  {' '}{flight.kerosene_max_pct}% kérosène
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeFlightFromPve(idx)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Boutons d'action PVE */}
+            <div className="flex gap-2 pt-4 border-t">
+              <Button
+                onClick={previewPdf}
+                className="flex-1 bg-purple-500 hover:bg-purple-600"
+                disabled={flights.length === 0}
+              >
+                <Eye size={16} className="mr-1" />
+                Prévisualiser PDF
+              </Button>
+              <Button
+                onClick={savePve}
+                className="flex-1 bg-green-500 hover:bg-green-600"
+              >
+                💾 Enregistrer
+              </Button>
+              <Button
+                onClick={resetPveForm}
+                variant="outline"
+                className="flex-1"
+              >
+                Annuler
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Liste des manifests */}
-      <div className="space-y-3">
-        {manifests.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <ClipboardCheck size={48} className="mx-auto mb-3 opacity-50" />
-            <p className="text-sm">Aucun manifest créé</p>
-          </div>
-        ) : (
-          manifests.map(manifest => (
-            <Card key={manifest.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-4 sm:pt-3 sm:pt-6 p-3 sm:p-6">
-                <div className="flex flex-col md:flex-row md:items-start gap-2 sm:gap-4">
-                  {/* Infos principales */}
-                  <div className="flex-1 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-bold text-base sm:text-lg">Vol {manifest.flight_number}</h4>
-                      <span className={`${getStatusBadge(manifest.status).color} px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1`}>
-                        {getStatusBadge(manifest.status).icon}
-                        {getStatusBadge(manifest.status).label}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
-                      <div><span className="font-semibold">Immat:</span> {manifest.aircraft_registration}</div>
-                      <div><span className="font-semibold">Pilote:</span> {manifest.pilot_name}</div>
-                      <div><span className="font-semibold">Trajet:</span> {manifest.departure || '?'} → {manifest.destination || '?'}</div>
-                      <div><span className="font-semibold">Passagers:</span> {manifest.passengers?.length || 0}</div>
-                    </div>
-
-                    {manifest.scheduled_departure && (
-                      <div className="text-xs sm:text-sm text-gray-600">
-                        🕐 {new Date(manifest.scheduled_departure).toLocaleString('fr-FR')}
-                      </div>
-                    )}
-
-                    <div className="text-xs text-gray-400 pt-2 border-t">
-                      Créé le {new Date(manifest.created_at).toLocaleString('fr-FR')}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex md:flex-col gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setViewingManifest(manifest)}
-                      className="text-xs whitespace-nowrap"
-                    >
-                      <Eye size={14} className="mr-1" />
-                      Voir
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => generatePDF(manifest)}
-                      className="text-xs whitespace-nowrap"
-                    >
-                      <Download size={14} className="mr-1" />
-                      PDF
-                    </Button>
-
-                    {manifest.status === 'draft' && (
-                      <Button
-                        size="sm"
-                        onClick={() => validateManifest(manifest.id)}
-                        className="bg-green-500 hover:bg-green-600 text-xs whitespace-nowrap"
-                      >
-                        <CheckCircle size={14} className="mr-1" />
-                        Valider
-                      </Button>
-                    )}
-
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => deleteManifest(manifest.id, manifest.flight_number)}
-                      className="text-xs"
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </div>
+      {/* Liste des PVE */}
+      {!showCreateForm && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {pves.length === 0 ? (
+            <Card className="col-span-full">
+              <CardContent className="pt-6 text-center text-gray-400">
+                <FileText size={48} className="mx-auto mb-3 opacity-50" />
+                <p>Aucun PVE enregistré</p>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
-
-      {/* Modal de visualisation */}
-      {viewingManifest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <CardHeader className="bg-blue-50 p-3 sm:p-6">
-              <CardTitle className="flex justify-between items-center text-base sm:text-xl">
-                <span>📋 Manifest Vol {viewingManifest.flight_number}</span>
-                <button onClick={() => setViewingManifest(null)} className="text-gray-500 hover:text-gray-700">
-                  <X size={20} />
-                </button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 sm:pt-3 sm:pt-6 space-y-2 sm:space-y-4">
-              {/* Infos vol */}
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><strong>Immatriculation:</strong> {viewingManifest.aircraft_registration}</div>
-                <div><strong>Pilote:</strong> {viewingManifest.pilot_name}</div>
-                <div><strong>Départ:</strong> {viewingManifest.departure || '-'}</div>
-                <div><strong>Destination:</strong> {viewingManifest.destination || '-'}</div>
-              </div>
-
-              {/* Passagers */}
-              {viewingManifest.passengers && viewingManifest.passengers.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2 text-sm">Passagers:</h4>
-                  <div className="space-y-1">
-                    {viewingManifest.passengers.map((pax, idx) => (
-                      <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
-                        {idx + 1}. {pax.prenom} {pax.nom}
-                        {pax.poids && ` - ${pax.poids} kg`}
-                        {pax.siege && ` - Siège ${pax.siege}`}
-                      </div>
-                    ))}
+          ) : (
+            pves.map(pve => (
+              <Card key={pve.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-base">
+                        {pve.aircraft?.registration || 'N/A'}
+                      </h3>
+                      <p className="text-xs text-gray-600">{pve.aircraft?.model || ''}</p>
+                      <p className="text-xs text-gray-500">
+                        📅 {new Date(pve.flight_date).toLocaleDateString('fr-FR')}
+                      </p>
+                      {pve.pilot_name && (
+                        <p className="text-xs text-gray-500">
+                          👨‍✈️ {pve.pilot_name}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => deletePve(pve.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                </div>
-              )}
-
-              {/* Checklist */}
-              <div>
-                <h4 className="font-semibold mb-2 text-sm">Checklist:</h4>
-                <div className="space-y-1 text-sm">
-                  <div>{viewingManifest.weather_check ? '✅' : '❌'} Météo vérifiée</div>
-                  <div>{viewingManifest.fuel_check ? '✅' : '❌'} Carburant vérifié</div>
-                  <div>{viewingManifest.documents_check ? '✅' : '❌'} Documents vérifiés</div>
-                  <div>{viewingManifest.equipment_check ? '✅' : '❌'} Équipements vérifiés</div>
-                  <div>{viewingManifest.exterior_check ? '✅' : '❌'} Inspection extérieure</div>
-                  <div>{viewingManifest.interior_check ? '✅' : '❌'} Inspection intérieure</div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              {viewingManifest.notes && (
-                <div>
-                  <h4 className="font-semibold mb-2 text-sm">Notes:</h4>
-                  <div className="p-2 bg-gray-50 rounded text-sm">{viewingManifest.notes}</div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      onClick={() => openEditPve(pve)}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                    >
+                      ✏️ Modifier
+                    </Button>
+                    <Button
+                      onClick={() => previewExistingPvePdf(pve)}
+                      size="sm"
+                      className="flex-1 text-xs bg-purple-500 hover:bg-purple-600"
+                    >
+                      <Eye size={14} className="mr-1" />
+                      PDF
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       )}
     </div>
