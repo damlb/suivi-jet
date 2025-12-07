@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Plane, MapPin, Clock, Calendar, Trash2, Filter, BarChart3 } from 'lucide-react'
+import { Plane, MapPin, Clock, Calendar, Filter, BarChart3 } from 'lucide-react'
 import StatsModal from './StatsModal'
 
 export default function FlightLogModule({ userId, userRole, setActiveModule }) {
@@ -568,7 +568,12 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
             <Button
               onClick={() => {
                 console.log('Clic AGENT sur Gérer DZ - Redirection vers dropzones')
-                setActiveModule('dropzones')
+                console.log('setActiveModule existe ?', typeof setActiveModule)
+                if (setActiveModule) {
+                  setActiveModule('dropzones')
+                } else {
+                  alert('❌ Erreur: setActiveModule non défini')
+                }
               }}
               variant="outline"
               className="w-full py-4 sm:py-6 text-base sm:text-lg"
@@ -702,7 +707,12 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
               <Button
                 onClick={() => {
                   console.log('Clic sur Gérer DZ - Redirection vers dropzones')
-                  setActiveModule('dropzones')
+                  console.log('setActiveModule existe ?', typeof setActiveModule)
+                  if (setActiveModule) {
+                    setActiveModule('dropzones')
+                  } else {
+                    alert('❌ Erreur: setActiveModule non défini')
+                  }
                 }}
                 variant="outline"
                 className="w-full py-6 sm:py-8 text-lg sm:text-xl"
@@ -865,31 +875,15 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        {flight.in_progress ? (
-                          <span className="px-2 sm:px-3 py-1 bg-orange-500 text-white rounded-full text-xs sm:text-sm font-semibold">
-                            En cours
-                          </span>
-                        ) : (
-                          <div className="text-base sm:text-lg font-bold text-green-600">
-                            {formatDuration(flight.departure_time, flight.arrival_time)}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Bouton suppression */}
-                      {userRole === 'pilote' && !flight.in_progress && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteFlight(flight)
-                          }}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded transition-colors"
-                          title="Supprimer ce vol"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                    <div className="text-right">
+                      {flight.in_progress ? (
+                        <span className="px-2 sm:px-3 py-1 bg-orange-500 text-white rounded-full text-xs sm:text-sm font-semibold">
+                          En cours
+                        </span>
+                      ) : (
+                        <div className="text-base sm:text-lg font-bold text-green-600">
+                          {formatDuration(flight.departure_time, flight.arrival_time)}
+                        </div>
                       )}
                     </div>
                   </div>
