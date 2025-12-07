@@ -494,16 +494,88 @@ export default function JetA1Module({ userRole, userId }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-6">
-            <Button 
-              onClick={() => {
-                setJetA1View('interne')
-                setNewPrise({ ...newPrise, type: 'interne' })
-                setShowAddPrise(true)
-              }}
-              className="w-full py-4 sm:py-6 text-base sm:text-lg bg-blue-500 hover:bg-blue-600"
-            >
-              + Ajouter une prise
-            </Button>
+            {!showAddPrise ? (
+              <Button 
+                onClick={() => {
+                  setJetA1View('interne')
+                  setNewPrise({ ...newPrise, type: 'interne' })
+                  setShowAddPrise(true)
+                }}
+                className="w-full py-4 sm:py-6 text-base sm:text-lg bg-blue-500 hover:bg-blue-600"
+              >
+                + Ajouter une prise
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1">Immatriculation *</label>
+                    <input
+                      type="text"
+                      value={newPrise.immatriculation}
+                      onChange={(e) => setNewPrise({ ...newPrise, immatriculation: e.target.value })}
+                      placeholder="Ex: F-HXYZ"
+                      className="w-full p-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1">Nom / Client *</label>
+                    <input
+                      type="text"
+                      value={newPrise.nom}
+                      onChange={(e) => setNewPrise({ ...newPrise, nom: e.target.value })}
+                      placeholder="Nom du client"
+                      className="w-full p-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1">Date *</label>
+                    <input
+                      type="date"
+                      value={newPrise.date}
+                      onChange={(e) => setNewPrise({ ...newPrise, date: e.target.value })}
+                      className="w-full p-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1">Volume (L) *</label>
+                    <input
+                      type="number"
+                      value={newPrise.volume}
+                      onChange={(e) => setNewPrise({ ...newPrise, volume: e.target.value })}
+                      placeholder="Litres"
+                      className="w-full p-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 mt-4">
+                  <Button 
+                    onClick={addPrise}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-sm sm:text-base"
+                  >
+                    ✅ Enregistrer
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddPrise(false)
+                      setNewPrise({
+                        immatriculation: '',
+                        nom: '',
+                        date: new Date().toISOString().split('T')[0],
+                        volume: '',
+                        prixLitre: '',
+                        type: 'interne'
+                      })
+                    }}
+                    className="flex-1 text-sm sm:text-base"
+                  >
+                    ❌ Annuler
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
