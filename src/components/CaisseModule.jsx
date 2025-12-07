@@ -8,15 +8,28 @@ export default function CaisseModule() {
   const [loading, setLoading] = useState(true)
   const [showAddTransaction, setShowAddTransaction] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
   const [modeFilter, setModeFilter] = useState('') // Nouveau filtre
   const [activeView, setActiveView] = useState('ventes') // 'ventes' ou 'achats'
+  const [editingTransaction, setEditingTransaction] = useState(null)
   
   const [newTransaction, setNewTransaction] = useState({
     categorie: 'vente', // 'vente', 'achat', ou 'depot_banque'
     type: 'encaissement',
     mode_paiement: 'cash',
     date: new Date().toISOString().split('T')[0],
+    nom: '',
+    montant: '',
+    descriptif: '',
+    photo_ticket: null
+  })
+
+  const [editTransactionData, setEditTransactionData] = useState({
+    categorie: '',
+    type: '',
+    mode_paiement: '',
+    date: '',
     nom: '',
     montant: '',
     descriptif: '',
@@ -103,6 +116,68 @@ export default function CaisseModule() {
       if (!error) {
         setTransactions(transactions.filter(t => t.id !== id))
       }
+    }
+  }
+
+  const openEditTransaction = (transaction) => {
+    setEditingTransaction(transaction)
+    setEditTransactionData({
+      categorie: transaction.categorie,
+      type: transaction.type,
+      mode_paiement: transaction.mode_paiement,
+      date: transaction.date,
+      nom: transaction.nom,
+      montant: transaction.montant,
+      descriptif: transaction.descriptif || '',
+      photo_ticket: transaction.photo_ticket
+    })
+  }
+
+  const handleUpdateTransaction = async () => {
+    if (!editingTransaction) return
+
+    const updateData = {
+      categorie: editTransactionData.categorie,
+      type: editTransactionData.type,
+      mode_paiement: editTransactionData.mode_paiement,
+      date: editTransactionData.date,
+      nom: editTransactionData.nom,
+      montant: parseFloat(editTransactionData.montant),
+      descriptif: editTransactionData.descriptif,
+      photo_ticket: editTransactionData.photo_ticket
+    }
+
+    const { error } = await supabase
+      .from('caisse')
+      .update(updateData)
+      .eq('id', editingTransaction.id)
+
+    if (!error) {
+      loadTransactions()
+      setEditingTransaction(null)
+      alert('✅ Transaction modifiée')
+    } else {
+      console.error('Erreur modification transaction:', error)
+      alert('❌ Erreur lors de la modification')
+    }
+  }
+
+  const handleDeleteTransactionFromModal = async () => {
+    if (!editingTransaction) return
+    if (!window.confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette transaction ?')) return
+
+    const { error } = await supabase
+      .from('caisse')
+      .delete()
+      .eq('id', editingTransaction.id)
+
+    if (!error) {
+      loadTransactions()
+      setEditingTransaction(null)
+      alert('✅ Transaction supprimée')
+    } else {
+      console.error('Erreur suppression transaction:', error)
+      alert('❌ Erreur lors de la suppression')
     }
   }
 
@@ -226,11 +301,22 @@ export default function CaisseModule() {
     ? transactionsAchats 
     : transactionsDepots
 
-  const filteredTransactions = displayedTransactions.filter(t =>
-    t.nom.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (!dateFilter || t.date === dateFilter) &&
-    (!modeFilter || t.mode_paiement === modeFilter)
-  )
+  const filteredTransactions = displayedTransactions.filter(t => {
+    const matchesSearch = t.nom.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesMode = !modeFilter || t.mode_paiement === modeFilter
+    
+    // Filtrage par période
+    let matchesDate = true
+    if (dateDebut && dateFin) {
+      matchesDate = t.date >= dateDebut && t.date <= dateFin
+    } else if (dateDebut) {
+      matchesDate = t.date >= dateDebut
+    } else if (dateFin) {
+      matchesDate = t.date <= dateFin
+    }
+    
+    return matchesSearch && matchesMode && matchesDate
+  })
 
   // Calculs
   const totalEncaissements = transactionsVentes
@@ -497,23 +583,32 @@ export default function CaisseModule() {
             >
               <option value="">Tous les modes</option>
               <option value="cash">💵 Cash</option>
-              <option value="carte">💳 Carte</option>
+              <option value="cb">💳 CB</option>
             </select>
             <input
               type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              value={dateDebut}
+              onChange={(e) => setDateDebut(e.target.value)}
+              placeholder="Du..."
               className="p-2 border rounded-lg text-sm"
             />
-            {(searchTerm || dateFilter || modeFilter) && (
+            <input
+              type="date"
+              value={dateFin}
+              onChange={(e) => setDateFin(e.target.value)}
+              placeholder="Au..."
+              className="p-2 border rounded-lg text-sm"
+            />
+            {(searchTerm || dateDebut || dateFin || modeFilter) && (
               <Button
                 onClick={() => {
                   setSearchTerm('')
-                  setDateFilter('')
+                  setDateDebut('')
+                  setDateFin('')
                   setModeFilter('')
                 }}
                 variant="ghost"
-                className="text-sm"
+                className="text-sm whitespace-nowrap"
               >
                 Réinitialiser
               </Button>
@@ -542,7 +637,11 @@ export default function CaisseModule() {
                   </tr>
                 ) : (
                   filteredTransactions.map(transaction => (
-                    <tr key={transaction.id} className="border-b hover:bg-gray-50">
+                    <tr 
+                      key={transaction.id} 
+                      onClick={() => openEditTransaction(transaction)}
+                      className="border-b hover:bg-blue-50 cursor-pointer transition-colors"
+                    >
                       <td className="p-1 sm:p-2 text-xs">
                         {new Date(transaction.date).toLocaleDateString('fr-FR', { 
                           day: '2-digit', 
@@ -559,7 +658,10 @@ export default function CaisseModule() {
                         {transaction.descriptif || '-'}
                         {transaction.photo_ticket && (
                           <button
-                            onClick={() => window.open(transaction.photo_ticket, '_blank')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(transaction.photo_ticket, '_blank')
+                            }}
                             className="ml-2 text-blue-500 hover:text-blue-700"
                           >
                             📷
@@ -571,14 +673,8 @@ export default function CaisseModule() {
                       }`}>
                         {activeView === 'ventes' ? '+' : '-'}{parseFloat(transaction.montant).toFixed(2)} €
                       </td>
-                      <td className="p-1 sm:p-2 text-center">
-                        <button
-                          onClick={() => deleteTransaction(transaction.id)}
-                          className="text-red-500 hover:text-red-700 text-xs sm:text-base"
-                          title="Supprimer"
-                        >
-                          🗑️
-                        </button>
+                      <td className="p-1 sm:p-2 text-center text-gray-400 text-xs">
+                        ✏️
                       </td>
                     </tr>
                   ))
@@ -608,6 +704,148 @@ export default function CaisseModule() {
           )}
         </CardContent>
       </Card>
+
+      {/* MODAL D'ÉDITION D'UNE TRANSACTION */}
+      {editingTransaction && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setEditingTransaction(null)}
+        >
+          <Card 
+            className="w-full max-w-2xl bg-white max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white p-4 sm:p-6 z-10">
+              <h3 className="text-base sm:text-xl font-bold">✏️ Modifier la transaction</h3>
+            </div>
+            
+            <CardContent className="pt-4 sm:pt-6 space-y-3 sm:space-y-4">
+              {/* Catégorie */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Catégorie <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editTransactionData.categorie}
+                  onChange={(e) => setEditTransactionData({ ...editTransactionData, categorie: e.target.value })}
+                  className="w-full p-2 border rounded-lg text-sm"
+                >
+                  <option value="vente">💰 Vente / Encaissement</option>
+                  <option value="achat">🛒 Achat / Décaissement</option>
+                  <option value="depot_banque">🏦 Dépôt Banque</option>
+                </select>
+              </div>
+
+              {/* Mode de paiement */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Mode de paiement <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editTransactionData.mode_paiement}
+                  onChange={(e) => setEditTransactionData({ ...editTransactionData, mode_paiement: e.target.value })}
+                  className="w-full p-2 border rounded-lg text-sm"
+                >
+                  <option value="cash">💵 Cash</option>
+                  <option value="cb">💳 CB</option>
+                </select>
+              </div>
+
+              {/* Date et Nom */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={editTransactionData.date}
+                    onChange={(e) => setEditTransactionData({ ...editTransactionData, date: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Nom / Client <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editTransactionData.nom}
+                    onChange={(e) => setEditTransactionData({ ...editTransactionData, nom: e.target.value })}
+                    placeholder="Ex: Client ABC"
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Montant */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Montant (€) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editTransactionData.montant}
+                  onChange={(e) => setEditTransactionData({ ...editTransactionData, montant: e.target.value })}
+                  placeholder="0.00"
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+              </div>
+
+              {/* Descriptif */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Descriptif
+                </label>
+                <textarea
+                  value={editTransactionData.descriptif}
+                  onChange={(e) => setEditTransactionData({ ...editTransactionData, descriptif: e.target.value })}
+                  placeholder="Notes ou détails..."
+                  className="w-full p-2 border rounded-lg text-sm"
+                  rows="3"
+                />
+              </div>
+
+              {/* Photo existante */}
+              {editTransactionData.photo_ticket && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Photo actuelle</label>
+                  <button
+                    onClick={() => window.open(editTransactionData.photo_ticket, '_blank')}
+                    className="text-blue-500 hover:text-blue-700 text-sm"
+                  >
+                    📷 Voir la photo
+                  </button>
+                </div>
+              )}
+
+              {/* Boutons */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={handleUpdateTransaction}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-sm"
+                >
+                  💾 Enregistrer
+                </Button>
+                <Button
+                  onClick={handleDeleteTransactionFromModal}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-sm"
+                >
+                  🗑️ Supprimer
+                </Button>
+                <Button
+                  onClick={() => setEditingTransaction(null)}
+                  variant="outline"
+                  className="flex-1 text-sm"
+                >
+                  ✖️ Annuler
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

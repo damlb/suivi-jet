@@ -507,10 +507,11 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
           <div className="flex justify-center">
             <Button
               onClick={() => setShowStatsModal(true)}
-              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-base px-8 py-6"
+              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-sm sm:text-base px-4 sm:px-8 py-4 sm:py-6"
             >
-              <BarChart3 size={20} className="mr-2" />
-              📊 Voir les statistiques et graphiques détaillés
+              <BarChart3 size={18} className="mr-2" />
+              <span className="sm:hidden">📊 Statistiques des vols</span>
+              <span className="hidden sm:inline">📊 Voir les statistiques et graphiques détaillés</span>
             </Button>
           </div>
         )}
@@ -589,27 +590,6 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Bouton Gérer Drop Zones (pour agents) */}
-        <Card>
-          <CardContent className="pt-3 sm:pt-6">
-            <Button
-              onClick={() => {
-                console.log('Clic AGENT sur Gérer DZ - Redirection vers dropzones')
-                console.log('setActiveModule existe ?', typeof setActiveModule)
-                if (setActiveModule) {
-                  setActiveModule('dropzones')
-                } else {
-                  alert('❌ Erreur: setActiveModule non défini')
-                }
-              }}
-              variant="outline"
-              className="w-full py-4 sm:py-6 text-base sm:text-lg"
-            >
-              📍 Gérer Drop Zones
-            </Button>
           </CardContent>
         </Card>
 

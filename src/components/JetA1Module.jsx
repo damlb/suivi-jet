@@ -11,6 +11,7 @@ export default function JetA1Module({ userRole, userId }) {
   const [showAddLivraison, setShowAddLivraison] = useState(false)
   const [jetA1View, setJetA1View] = useState('interne')
   const [showAddPrise, setShowAddPrise] = useState(false)
+  const [editingPrise, setEditingPrise] = useState(null)
   
   const [newLivraison, setNewLivraison] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -25,6 +26,14 @@ export default function JetA1Module({ userRole, userId }) {
     volume: '',
     prixLitre: '',
     type: 'interne'
+  })
+
+  const [editPriseData, setEditPriseData] = useState({
+    immatriculation: '',
+    nom: '',
+    date: '',
+    volume: '',
+    prixLitre: ''
   })
 
   useEffect(() => {
@@ -177,11 +186,6 @@ export default function JetA1Module({ userRole, userId }) {
   if (userRole === 'pilote') {
     return (
       <div className="space-y-3 sm:space-y-6">
-        <div className="text-center">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">⛽ Suivi Jet A1 - Mode Pilote</h2>
-          <p className="text-sm sm:text-base text-gray-600">Interface simplifiée pour enregistrer vos prises de carburant</p>
-        </div>
-
         {!livraisonActive ? (
           <Card className="bg-gray-50 border-2 border-gray-300">
             <CardContent className="pt-3 sm:pt-6 text-center">
@@ -195,7 +199,7 @@ export default function JetA1Module({ userRole, userId }) {
         ) : (
           <>
             {/* 1️⃣ ENREGISTRER UNE PRISE - EN PREMIER */}
-            <Card className="border-2 border-blue-500 shadow-lg">
+            <Card className="border-2 border-blue-500 shadow-lg overflow-hidden">
               <CardHeader className="bg-blue-50 p-3 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-blue-900 text-base sm:text-xl">
                   <Fuel size={20} className="sm:w-6 sm:h-6" />
@@ -401,6 +405,67 @@ export default function JetA1Module({ userRole, userId }) {
     }
   }
 
+  const openEditPrise = (prise) => {
+    setEditingPrise(prise)
+    setEditPriseData({
+      immatriculation: prise.immatriculation,
+      nom: prise.nom,
+      date: prise.date,
+      volume: prise.volume,
+      prixLitre: prise.prix_litre || ''
+    })
+  }
+
+  const handleUpdatePrise = async () => {
+    if (!editingPrise) return
+
+    const updateData = {
+      immatriculation: editPriseData.immatriculation,
+      nom: editPriseData.nom,
+      date: editPriseData.date,
+      volume: parseFloat(editPriseData.volume)
+    }
+
+    // Ajouter prix si vente externe
+    if (editingPrise.type === 'externe' && editPriseData.prixLitre) {
+      updateData.prix_litre = parseFloat(editPriseData.prixLitre)
+      updateData.prix_total = parseFloat(editPriseData.volume) * parseFloat(editPriseData.prixLitre)
+    }
+
+    const { error } = await supabase
+      .from('prises')
+      .update(updateData)
+      .eq('id', editingPrise.id)
+
+    if (!error) {
+      loadLivraisons()
+      setEditingPrise(null)
+      alert('✅ Prise modifiée')
+    } else {
+      console.error('Erreur modification prise:', error)
+      alert('❌ Erreur lors de la modification')
+    }
+  }
+
+  const handleDeletePriseFromModal = async () => {
+    if (!editingPrise) return
+    if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette prise ?')) return
+
+    const { error } = await supabase
+      .from('prises')
+      .delete()
+      .eq('id', editingPrise.id)
+
+    if (!error) {
+      loadLivraisons()
+      setEditingPrise(null)
+      alert('✅ Prise supprimée')
+    } else {
+      console.error('Erreur suppression prise:', error)
+      alert('❌ Erreur lors de la suppression')
+    }
+  }
+
   const unarchiveLivraison = async (id) => {
     if (livraisonActive) {
       alert('Il y a déjà une livraison active. Veuillez d\'abord la clôturer.')
@@ -419,6 +484,30 @@ export default function JetA1Module({ userRole, userId }) {
 
   return (
     <div className="space-y-4">
+      {/* BOUTON BIEN VISIBLE POUR AJOUTER UNE PRISE INTERNE - EN HAUT */}
+      {livraisonActive && (
+        <Card className="border-2 border-blue-500 shadow-lg overflow-hidden">
+          <CardHeader className="bg-blue-50 p-3 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-blue-900 text-base sm:text-xl">
+              <Fuel size={20} className="sm:w-6 sm:h-6" />
+              🛫 Enregistrer une prise de carburant interne
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6">
+            <Button 
+              onClick={() => {
+                setJetA1View('interne')
+                setNewPrise({ ...newPrise, type: 'interne' })
+                setShowAddPrise(true)
+              }}
+              className="w-full py-4 sm:py-6 text-base sm:text-lg bg-blue-500 hover:bg-blue-600"
+            >
+              + Ajouter une prise
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-end items-center">
         <Button onClick={() => setShowAddLivraison(!showAddLivraison)}>
           + Nouvelle livraison
@@ -705,7 +794,11 @@ export default function JetA1Module({ userRole, userId }) {
                           </tr>
                         ) : (
                           displayedPrises.map(prise => (
-                            <tr key={prise.id} className="border-b hover:bg-gray-50">
+                            <tr 
+                              key={prise.id} 
+                              onClick={() => openEditPrise(prise)}
+                              className="border-b hover:bg-blue-50 cursor-pointer transition-colors"
+                            >
                               <td className="p-2">{prise.immatriculation}</td>
                               <td className="p-2">{prise.nom}</td>
                               <td className="p-2">{new Date(prise.date).toLocaleDateString('fr-FR')}</td>
@@ -718,13 +811,8 @@ export default function JetA1Module({ userRole, userId }) {
                                   </td>
                                 </>
                               )}
-                              <td className="p-2 text-center">
-                                <button
-                                  onClick={() => deletePrise(prise.id, livraisonActive.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  🗑️
-                                </button>
+                              <td className="p-2 text-center text-gray-400 text-xs">
+                                ✏️
                               </td>
                             </tr>
                           ))
@@ -855,6 +943,119 @@ export default function JetA1Module({ userRole, userId }) {
               )
             })
           )}
+        </div>
+      )}
+
+      {/* MODAL D'ÉDITION D'UNE PRISE */}
+      {editingPrise && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setEditingPrise(null)}
+        >
+          <Card 
+            className="w-full max-w-2xl bg-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+              <CardTitle className="text-base sm:text-xl">
+                ✏️ Modifier la prise de carburant
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 sm:pt-6 space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Immatriculation / Référence
+                  </label>
+                  <input
+                    type="text"
+                    value={editPriseData.immatriculation}
+                    onChange={(e) => setEditPriseData({ ...editPriseData, immatriculation: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Nom / Client
+                  </label>
+                  <input
+                    type="text"
+                    value={editPriseData.nom}
+                    onChange={(e) => setEditPriseData({ ...editPriseData, nom: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editPriseData.date}
+                    onChange={(e) => setEditPriseData({ ...editPriseData, date: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Volume (L) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={editPriseData.volume}
+                    onChange={(e) => setEditPriseData({ ...editPriseData, volume: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+
+              {editingPrise.type === 'externe' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Prix par litre (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editPriseData.prixLitre}
+                    onChange={(e) => setEditPriseData({ ...editPriseData, prixLitre: e.target.value })}
+                    className="w-full p-2 border rounded-lg text-sm"
+                  />
+                  {editPriseData.volume && editPriseData.prixLitre && (
+                    <div className="mt-2 text-sm font-semibold text-green-700">
+                      Prix total: {(parseFloat(editPriseData.volume) * parseFloat(editPriseData.prixLitre)).toFixed(2)} €
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Boutons */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={handleUpdatePrise}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-sm"
+                >
+                  💾 Enregistrer
+                </Button>
+                <Button
+                  onClick={handleDeletePriseFromModal}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-sm"
+                >
+                  🗑️ Supprimer
+                </Button>
+                <Button
+                  onClick={() => setEditingPrise(null)}
+                  variant="outline"
+                  className="flex-1 text-sm"
+                >
+                  ✖️ Annuler
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
