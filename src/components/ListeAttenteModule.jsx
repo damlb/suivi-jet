@@ -365,7 +365,6 @@ export default function ListeAttenteModule() {
             <Users size={24} />
             Liste d'attente
           </h2>
-          <p className="text-sm text-gray-600">{clients.length} client{clients.length > 1 ? 's' : ''} en attente</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <Button

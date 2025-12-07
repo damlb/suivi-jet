@@ -8,6 +8,7 @@ import ListeAttenteModule from './components/ListeAttenteModule'
 import FlightLogModule from './components/FlightLogModule'
 import DropZonesModule from './components/DropZonesModule'
 import ManifestModule from './components/ManifestModule'
+import AircraftModule from './components/AircraftModule'
 import UserManagementModule from './components/UserManagementModule'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
@@ -195,6 +196,17 @@ function App() {
                     >
                       📄 <span className="hidden sm:inline">PVE</span>
                     </button>
+
+                    <button
+                      onClick={() => setActiveModule('aircraft')}
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
+                        activeModule === 'aircraft'
+                          ? 'bg-indigo-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      🚁 <span className="hidden sm:inline">Appareils</span>
+                    </button>
                   </>
                 )}
 
@@ -280,6 +292,18 @@ function App() {
                     >
                       📄 <span className="hidden sm:inline">PVE</span>
                     </button>
+
+                    {/* Appareils */}
+                    <button
+                      onClick={() => setActiveModule('aircraft')}
+                      className={`flex-shrink-0 py-2 px-3 sm:py-3 sm:px-6 rounded-lg font-semibold transition-all whitespace-nowrap text-sm ${
+                        activeModule === 'aircraft'
+                          ? 'bg-indigo-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      ✈️ <span className="hidden sm:inline">Appareils</span>
+                    </button>
                   </>
                 )}
               </div>
@@ -320,6 +344,7 @@ function App() {
                 username={username}
               />
             )}
+            {activeModule === 'aircraft' && <AircraftModule />}
           </CardContent>
         </Card>
       </div>
