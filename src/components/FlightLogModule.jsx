@@ -10,6 +10,9 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
   const [flights, setFlights] = useState([])
   const [allFlights, setAllFlights] = useState([]) // Tous les vols pour filtrage
   const [currentFlight, setCurrentFlight] = useState(null)
+  const [aircraft, setAircraft] = useState([])
+  const [selectedAircraftId, setSelectedAircraftId] = useState('') // Pour nouveau vol
+  const [lastUsedAircraftId, setLastUsedAircraftId] = useState('') // Mémoriser le dernier
   const [loading, setLoading] = useState(true)
   
   // Modale statistiques
@@ -18,7 +21,9 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
   // Filtres
   const [pilots, setPilots] = useState([])
   const [selectedPilot, setSelectedPilot] = useState('all')
-  const [selectedDate, setSelectedDate] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [selectedAircraftFilter, setSelectedAircraftFilter] = useState('all')
   
   // État pour le formulaire de décollage/atterrissage
   const [searchTerm, setSearchTerm] = useState('')
@@ -41,16 +46,31 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
   // Filtrer les vols quand les filtres changent
   useEffect(() => {
     filterFlights()
-  }, [selectedPilot, selectedDate, allFlights])
+  }, [selectedPilot, startDate, endDate, selectedAircraftFilter, allFlights])
 
   const loadData = async () => {
     await Promise.all([
       loadDropZones(),
       loadFlights(),
       loadCurrentFlight(),
-      loadPilots()
+      loadPilots(),
+      loadAircraft()
     ])
     setLoading(false)
+  }
+
+  const loadAircraft = async () => {
+    const { data, error } = await supabase
+      .from('aircraft')
+      .select('*')
+      .eq('actif', true)
+      .order('registration')
+
+    if (data) {
+      setAircraft(data)
+    } else {
+      console.error('Erreur chargement appareils:', error)
+    }
   }
 
   const loadPilots = async () => {
@@ -122,6 +142,11 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
     if (data) {
       setCurrentFlight(data)
     }
+    
+    // Initialiser l'appareil sélectionné avec le dernier utilisé si disponible
+    if (lastUsedAircraftId) {
+      setSelectedAircraftId(lastUsedAircraftId)
+    }
   }
 
   const filterFlights = () => {
@@ -132,12 +157,29 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
       filtered = filtered.filter(f => f.pilot_id === selectedPilot)
     }
 
-    // Filtrer par date
-    if (selectedDate) {
+    // Filtrer par plage de dates
+    if (startDate || endDate) {
       filtered = filtered.filter(f => {
         const flightDate = new Date(f.departure_time).toISOString().split('T')[0]
-        return flightDate === selectedDate
+        
+        // Si seulement date de début
+        if (startDate && !endDate) {
+          return flightDate >= startDate
+        }
+        
+        // Si seulement date de fin
+        if (!startDate && endDate) {
+          return flightDate <= endDate
+        }
+        
+        // Si les deux dates
+        return flightDate >= startDate && flightDate <= endDate
       })
+    }
+
+    // Filtrer par appareil
+    if (selectedAircraftFilter !== 'all') {
+      filtered = filtered.filter(f => f.aircraft_id === selectedAircraftFilter)
     }
 
     setFlights(filtered)
@@ -145,14 +187,26 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
 
   const resetFilters = () => {
     setSelectedPilot('all')
-    setSelectedDate('')
+    setStartDate('')
+    setEndDate('')
+    setSelectedAircraftFilter('all')
   }
 
   const handleTakeoff = async () => {
+    // Validation appareil obligatoire
+    if (!selectedAircraftId) {
+      alert('⚠️ Veuillez sélectionner un appareil avant de décoller')
+      return
+    }
+
+    const selectedAircraft = aircraft.find(a => a.id === selectedAircraftId)
+
     const flightData = {
       pilot_id: userId,
       departure_time: new Date().toISOString(),
-      in_progress: true
+      in_progress: true,
+      aircraft_id: selectedAircraftId,
+      aircraft_registration: selectedAircraft?.registration
     }
 
     // Ajouter les données de la DZ si sélectionnée
@@ -173,9 +227,11 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
       setCurrentFlight(data)
       setSelectedDZ(null)
       setSearchTerm('')
+      // Mémoriser le dernier appareil utilisé pour le prochain vol
+      setLastUsedAircraftId(selectedAircraftId)
       loadFlights()
       const location = selectedDZ ? `depuis ${selectedDZ.name}` : '(lieu à préciser)'
-      alert(`✅ Décollage enregistré ${location}`)
+      alert(`✅ Décollage enregistré ${location} - ${selectedAircraft?.registration}`)
     } else {
       console.error('Erreur décollage:', error)
       alert('❌ Erreur lors de l\'enregistrement du décollage')
@@ -288,6 +344,12 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
     if (!editingFlight) return
 
     const updateData = {}
+
+    // Appareil
+    if (editingFlight.aircraft_id) {
+      updateData.aircraft_id = editingFlight.aircraft_id
+      updateData.aircraft_registration = editingFlight.aircraft_registration
+    }
 
     if (editDepartureDZ) {
       updateData.departure_dz_id = editDepartureDZ.id
@@ -402,21 +464,24 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
     return (
       <div className="space-y-3 sm:space-y-6">
         {/* Statistiques globales */}
-        {(selectedPilot !== 'all' || selectedDate) && (
+        {(selectedPilot !== 'all' || startDate || endDate || selectedAircraftFilter !== 'all') && (
           <Card className="border-2 border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base sm:text-xl">
-                📊 Statistiques
-                {selectedPilot !== 'all' && (
-                  <span className="text-xs sm:text-sm font-normal">
-                    - {pilots.find(p => p.id === selectedPilot)?.username}
-                  </span>
-                )}
-                {selectedDate && (
-                  <span className="text-xs sm:text-sm font-normal">
-                    - {new Date(selectedDate).toLocaleDateString('fr-FR')}
-                  </span>
-                )}
+              <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-base sm:text-xl">
+                <span>📊 Statistiques</span>
+                <div className="flex flex-wrap gap-1 text-xs sm:text-sm font-normal text-gray-600">
+                  {selectedPilot !== 'all' && (
+                    <span>- {pilots.find(p => p.id === selectedPilot)?.username}</span>
+                  )}
+                  {(startDate || endDate) && (
+                    <span>
+                      - Du {startDate ? new Date(startDate).toLocaleDateString('fr-FR') : '...'} au {endDate ? new Date(endDate).toLocaleDateString('fr-FR') : '...'}
+                    </span>
+                  )}
+                  {selectedAircraftFilter !== 'all' && (
+                    <span>- {aircraft.find(a => a.id === selectedAircraftFilter)?.registration}</span>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -440,13 +505,13 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
               </div>
               
               {stats.totalFlights > 0 && (
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="text-xs sm:text-sm text-gray-600">
                     💡 Moyenne par vol : {Math.round(stats.totalMinutes / stats.totalFlights)} minutes
                   </div>
                   <Button
                     onClick={() => setShowStatsModal(true)}
-                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-sm"
+                    className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-sm"
                   >
                     <BarChart3 size={16} className="mr-2" />
                     📊 Voir les graphiques
@@ -464,7 +529,7 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
               <Filter size={20} className="text-blue-600" />
               <h3 className="font-semibold text-base sm:text-lg">Filtres</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
                 <label className="block text-xs sm:text-sm font-medium mb-2">Pilote</label>
                 <select
@@ -481,13 +546,37 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-2">Date</label>
+                <label className="block text-xs sm:text-sm font-medium mb-2">Du</label>
                 <input
                   type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
                   className="w-full p-2 border rounded-lg text-sm"
                 />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-2">Au</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full p-2 border rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-2">Appareil</label>
+                <select
+                  value={selectedAircraftFilter}
+                  onChange={(e) => setSelectedAircraftFilter(e.target.value)}
+                  className="w-full p-2 border rounded-lg text-sm"
+                >
+                  <option value="all">Tous les appareils</option>
+                  {aircraft.map(ac => (
+                    <option key={ac.id} value={ac.id}>
+                      {ac.registration}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-end">
                 <Button
@@ -501,20 +590,6 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
             </div>
           </CardContent>
         </Card>
-
-        {/* Bouton permanent pour voir les graphiques */}
-        {allFlights.filter(f => !f.in_progress && f.arrival_time).length > 0 && (
-          <div className="flex justify-center">
-            <Button
-              onClick={() => setShowStatsModal(true)}
-              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-sm sm:text-base px-4 sm:px-8 py-4 sm:py-6"
-            >
-              <BarChart3 size={18} className="mr-2" />
-              <span className="sm:hidden">📊 Statistiques des vols</span>
-              <span className="hidden sm:inline">📊 Voir les statistiques et graphiques détaillés</span>
-            </Button>
-          </div>
-        )}
 
         {/* Historique complet pour agents */}
         <Card>
@@ -565,6 +640,12 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
                           ) : null}
                         </div>
                         <div className="text-xs sm:text-sm text-gray-600 space-y-1">
+                          {flight.aircraft_registration && (
+                            <div className="flex items-center gap-2">
+                              <Plane size={14} />
+                              <span className="font-semibold text-blue-600">{flight.aircraft_registration}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2">
                             <Calendar size={14} />
                             {new Date(flight.departure_time).toLocaleDateString('fr-FR')}
@@ -642,6 +723,32 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
       <Card>
         <CardContent className="p-3 sm:p-6">
           <div className="space-y-2 sm:space-y-4">
+            {/* Sélection appareil (uniquement si pas de vol en cours) */}
+            {!currentFlight && (
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  ✈️ Appareil <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedAircraftId}
+                  onChange={(e) => setSelectedAircraftId(e.target.value)}
+                  className="w-full p-2 sm:p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                >
+                  <option value="">-- Sélectionner un appareil --</option>
+                  {aircraft.map(ac => (
+                    <option key={ac.id} value={ac.id}>
+                      {ac.registration} - {ac.model}
+                    </option>
+                  ))}
+                </select>
+                {!selectedAircraftId && (
+                  <p className="text-xs text-red-500 mt-1">
+                    ⚠️ La sélection d'un appareil est obligatoire
+                  </p>
+                )}
+              </div>
+            )}
+            
             {/* Recherche Drop Zone */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -742,15 +849,39 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <Filter size={20} className="text-blue-600" />
             <div className="flex-1 w-full">
-              <label className="block text-xs sm:text-sm font-medium mb-2">Filtrer par date</label>
+              <label className="block text-xs sm:text-sm font-medium mb-2">Du</label>
               <input
                 type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
                 className="w-full p-2 border rounded-lg text-sm"
               />
             </div>
-            {selectedDate && (
+            <div className="flex-1 w-full">
+              <label className="block text-xs sm:text-sm font-medium mb-2">Au</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full p-2 border rounded-lg text-sm"
+              />
+            </div>
+            <div className="flex-1 w-full">
+              <label className="block text-xs sm:text-sm font-medium mb-2">Appareil</label>
+              <select
+                value={selectedAircraftFilter}
+                onChange={(e) => setSelectedAircraftFilter(e.target.value)}
+                className="w-full p-2 border rounded-lg text-sm"
+              >
+                <option value="all">Tous les appareils</option>
+                {aircraft.map(ac => (
+                  <option key={ac.id} value={ac.id}>
+                    {ac.registration}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {(startDate || endDate || selectedAircraftFilter !== 'all') && (
               <Button
                 onClick={resetFilters}
                 variant="outline"
@@ -761,8 +892,8 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
             )}
           </div>
           
-          {/* Stats du jour si date sélectionnée */}
-          {selectedDate && flights.length > 0 && (
+          {/* Stats de la période si dates sélectionnées */}
+          {(startDate || endDate) && flights.length > 0 && (
             <div className="mt-4 pt-4 border-t border-blue-200">
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3">
                 <div className="bg-white p-2 sm:p-3 rounded-lg border border-blue-200">
@@ -801,7 +932,7 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
           )}
           
           {/* Bouton graphiques si pas de date sélectionnée mais qu'il y a des vols */}
-          {!selectedDate && allFlights.filter(f => !f.in_progress && f.arrival_time).length > 0 && (
+          {!startDate && !endDate && allFlights.filter(f => !f.in_progress && f.arrival_time).length > 0 && (
             <div className="mt-4 pt-4 border-t border-blue-200">
               <Button
                 onClick={() => setShowStatsModal(true)}
@@ -871,6 +1002,12 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
                         </span>
                       </div>
                       <div className="text-xs sm:text-sm text-gray-600 space-y-1">
+                        {flight.aircraft_registration && (
+                          <div className="flex items-center gap-2">
+                            <Plane size={14} />
+                            <span className="font-semibold text-blue-600">{flight.aircraft_registration}</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <Calendar size={14} />
                           {new Date(flight.departure_time).toLocaleDateString('fr-FR')}
@@ -968,6 +1105,32 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
+                {/* Appareil */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                    ✈️ Appareil
+                  </label>
+                  <select
+                    value={editingFlight.aircraft_id || ''}
+                    onChange={(e) => {
+                      const selectedAircraft = aircraft.find(a => a.id === e.target.value)
+                      setEditingFlight({
+                        ...editingFlight,
+                        aircraft_id: e.target.value,
+                        aircraft_registration: selectedAircraft?.registration
+                      })
+                    }}
+                    className="w-full p-2 sm:p-3 border rounded-lg text-sm"
+                  >
+                    <option value="">-- Sélectionner un appareil --</option>
+                    {aircraft.map(ac => (
+                      <option key={ac.id} value={ac.id}>
+                        {ac.registration} - {ac.model}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Drop Zone de départ */}
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">

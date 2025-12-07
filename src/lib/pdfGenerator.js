@@ -1,5 +1,5 @@
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 export const generatePVEPdf = async (pveData, flights, dropzones) => {
   const doc = new jsPDF('portrait', 'mm', 'a4')
@@ -10,20 +10,38 @@ export const generatePVEPdf = async (pveData, flights, dropzones) => {
   const margin = 10
   const contentWidth = pageWidth - (2 * margin)
   
+  // CALCUL: Combien de vols par page (approximatif)
+  // Hauteur en-tête: ~50mm
+  // Hauteur footer: ~30mm
+  // Hauteur disponible 1ère page: ~210mm
+  // Hauteur disponible pages suivantes: ~270mm
+  // Hauteur moyenne par vol: ~15mm
+  // → Page 1: ~14 vols, Pages suivantes: ~18 vols
+  
+  const VOLS_PER_PAGE_1 = 14
+  const VOLS_PER_PAGE_OTHER = 18
+  const MIN_PAGES = 2 // Minimum 2 pages de vols
+  
+  // Calculer combien de lignes vides à ajouter
+  const totalFlightsToDisplay = Math.max(
+    flights.length,
+    VOLS_PER_PAGE_1 + (MIN_PAGES - 1) * VOLS_PER_PAGE_OTHER
+  )
+  
   let currentY = margin
 
   // ============================================
-  // EN-TÊTE DU DOCUMENT
+  // EN-TÊTE DU DOCUMENT (uniquement page 1)
   // ============================================
   
   // Titre principal
-  doc.setFontSize(14)
+  doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
-  doc.text('PVE RÉDUIT, ROTATIONS MULTIPLES, MANIFESTE PASSAGERS OU FRÊT', pageWidth / 2, currentY, { align: 'center' })
-  currentY += 10
+  doc.text('PVE REDUIT, ROTATIONS MULTIPLES, MANIFESTE PASSAGERS OU FRÊT', pageWidth / 2, currentY, { align: 'center' })
+  currentY += 8
 
   // Informations principales en 2 colonnes
-  doc.setFontSize(10)
+  doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   
   const colWidth = contentWidth / 2
@@ -34,185 +52,183 @@ export const generatePVEPdf = async (pveData, flights, dropzones) => {
   doc.setFont('helvetica', 'bold')
   doc.text('Date du vol :', margin, leftY)
   doc.setFont('helvetica', 'normal')
-  doc.text(new Date(pveData.flight_date).toLocaleDateString('fr-FR'), margin + 30, leftY)
-  leftY += 6
+  doc.text(new Date(pveData.flight_date).toLocaleDateString('fr-FR'), margin + 25, leftY)
+  leftY += 5
 
   doc.setFont('helvetica', 'bold')
   doc.text('Numéro CRM :', margin, leftY)
   doc.setFont('helvetica', 'normal')
-  doc.text(pveData.numero_crm || '-', margin + 30, leftY)
-  leftY += 6
+  doc.text(pveData.numero_crm || '', margin + 25, leftY)
+  leftY += 5
 
   doc.setFont('helvetica', 'bold')
   doc.text('Type aéronef :', margin, leftY)
   doc.setFont('helvetica', 'normal')
-  doc.text(pveData.type_aeronef || '-', margin + 30, leftY)
-  leftY += 6
+  doc.text(pveData.type_aeronef || '', margin + 28, leftY)
+  leftY += 5
 
   doc.setFont('helvetica', 'bold')
   doc.text('Immatriculation :', margin, leftY)
   doc.setFont('helvetica', 'normal')
-  doc.text(pveData.aircraft_registration || '-', margin + 30, leftY)
-  leftY += 6
+  doc.text(pveData.aircraft_registration || '', margin + 30, leftY)
+  leftY += 5
 
   // Colonne droite
   doc.setFont('helvetica', 'bold')
   doc.text('Configuration aéronef :', margin + colWidth, rightY)
   doc.setFont('helvetica', 'normal')
-  const configLines = doc.splitTextToSize(pveData.configuration_aeronef || '-', colWidth - 45)
-  doc.text(configLines, margin + colWidth, rightY + 5)
-  rightY += 6 * configLines.length
+  doc.setFontSize(8)
+  doc.text(pveData.configuration_aeronef || '', margin + colWidth, rightY + 4)
+  rightY += 10
+  doc.setFontSize(9)
 
   doc.setFont('helvetica', 'bold')
   doc.text('Nom, Prénom CDB :', margin + colWidth, rightY)
   doc.setFont('helvetica', 'normal')
-  doc.text(pveData.pilot_name || '-', margin + colWidth, rightY + 5)
-  rightY += 10
+  doc.text(pveData.pilot_name || '', margin + colWidth, rightY + 4)
+  rightY += 8
 
-  currentY = Math.max(leftY, rightY) + 5
+  currentY = Math.max(leftY, rightY) + 3
 
   // ============================================
   // TABLEAU DES VOLS
   // ============================================
   
-  if (flights.length === 0) {
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'italic')
-    doc.text('Aucun vol enregistré', pageWidth / 2, currentY, { align: 'center' })
-  } else {
-    // Préparer les données du tableau
-    const tableData = flights.map((flight, idx) => {
-      // Formater les passagers
+  // Préparer les données avec lignes vides
+  const tableData = []
+  
+  for (let i = 0; i < totalFlightsToDisplay; i++) {
+    const flight = flights[i]
+    
+    if (flight) {
+      // Vol réel
       const passengersText = flight.passengers && flight.passengers.length > 0
-        ? flight.passengers.map(p => `${p.name || '-'} (${p.type})`).join('\n')
-        : '-'
+        ? flight.passengers.map(p => `${p.name || ''} (${p.type})`).join('\n')
+        : ''
 
-      // Compter H/F/E
       const hommes = flight.passengers ? flight.passengers.filter(p => p.type === 'H').length : 0
       const femmes = flight.passengers ? flight.passengers.filter(p => p.type === 'F').length : 0
       const enfants = flight.passengers ? flight.passengers.filter(p => p.type === 'E').length : 0
-      const hfeText = `${hommes}/${femmes}/${enfants}`
+      const hfeText = `${hommes} ${femmes} ${enfants}`
 
-      // Départ / Arrivée
       const dzDepart = dropzones.find(d => d.id === flight.departure_dz_id)
       const dzArrivee = dropzones.find(d => d.id === flight.arrival_dz_id)
-      const departText = dzDepart ? `${dzDepart.short_code || dzDepart.oaci_code}\n${dzDepart.name}` : '-'
-      const arriveeText = dzArrivee ? `${dzArrivee.short_code || dzArrivee.oaci_code}\n${dzArrivee.name}` : '-'
+      const departText = dzDepart ? `${dzDepart.short_code || dzDepart.oaci_code} ${dzDepart.name}` : ''
+      const arriveeText = dzArrivee ? `${dzArrivee.short_code || dzArrivee.oaci_code} ${dzArrivee.name}` : ''
 
-      // Heures
       const heuresText = flight.heure_deco && flight.heure_pose 
-        ? `${flight.heure_deco} / ${flight.heure_pose}`
-        : '-'
+        ? `${flight.heure_deco}\n${flight.heure_pose}`
+        : ''
 
-      // Temps vol
       const tempsText = flight.estimated_duration 
-        ? `${flight.estimated_duration} min`
-        : '-'
+        ? `${flight.estimated_duration}min`
+        : ''
 
-      // Kérosène
       const keroText = flight.kerosene_deco && flight.kerosene_pose
-        ? `${flight.kerosene_deco} / ${flight.kerosene_pose}`
-        : '-'
+        ? `${flight.kerosene_deco}\n${flight.kerosene_pose}`
+        : ''
 
-      return [
-        `V: ${idx + 1}\nK: ${flight.cas_vol || '-'}\nM: ${flight.bagages_kg || 0}kg\nT: ${flight.type_mission || '-'}`,
+      tableData.push([
+        `V: ${i + 1}\nK: ${flight.cas_vol || '-'}\nM: ${flight.bagages_kg || 0}\nT: ${flight.type_mission || ''}`,
         passengersText,
         hfeText,
-        `${departText}\n→\n${arriveeText}`,
+        `${departText}\n${arriveeText}`,
         heuresText,
         tempsText,
         keroText,
-        flight.observations || '-',
-        flight.attente_heslo || '-'
-      ]
-    })
+        flight.observations || '',
+        flight.attente_heslo || ''
+      ])
+    } else {
+      // Ligne vide
+      tableData.push([
+        `V: -\nK: -\nM: -\nT: -`,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ''
+      ])
+    }
+  }
 
-    // Créer le tableau
-    doc.autoTable({
-      startY: currentY,
-      head: [[
-        'V-K-M-T',
-        'Noms Pax',
-        'H/F/E',
-        'Départ / Arrivée',
-        'Heure\nDéco/Posé',
-        'Tps Vol\nPrévu',
-        'Kéro\nDéco/Posé',
-        'OBS*',
-        'Att/Cycle\nHeslo'
-      ]],
-      body: tableData,
-      theme: 'grid',
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-        lineColor: [0, 0, 0],
-        lineWidth: 0.1
-      },
-      headStyles: {
-        fillColor: [200, 200, 200],
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
-        halign: 'center',
-        valign: 'middle'
-      },
-      columnStyles: {
-        0: { cellWidth: 18, fontSize: 7 },
-        1: { cellWidth: 35, fontSize: 7 },
-        2: { cellWidth: 12, halign: 'center' },
-        3: { cellWidth: 35, fontSize: 7 },
-        4: { cellWidth: 18, halign: 'center', fontSize: 7 },
-        5: { cellWidth: 15, halign: 'center', fontSize: 7 },
-        6: { cellWidth: 18, halign: 'center', fontSize: 7 },
-        7: { cellWidth: 20, fontSize: 7 },
-        8: { cellWidth: 18, fontSize: 7 }
-      },
-      margin: { left: margin, right: margin },
-      // IMPORTANT : Ne pas couper un vol entre 2 pages
-      rowPageBreak: 'avoid',
-      didDrawPage: (data) => {
-        // Ajouter numéro de page en bas
-        const pageCount = doc.internal.getNumberOfPages()
+  // Créer le tableau
+  autoTable(doc, {
+    startY: currentY,
+    head: [[
+      'V-K-M-T',
+      'Noms Pax ou TS',
+      'H  F  E',
+      'Départ / Arrivée',
+      'Heure\nDéco/Posé',
+      'Tps Vol\nPrévu/Réel',
+      'Kéro\nDéco/Posé',
+      'OBS*',
+      'Att/Cycle\nHeslo'
+    ]],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      fontSize: 7,
+      cellPadding: 1.5,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.1,
+      minCellHeight: 12
+    },
+    headStyles: {
+      fillColor: [220, 220, 220],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'center',
+      valign: 'middle',
+      fontSize: 8
+    },
+    columnStyles: {
+      0: { cellWidth: 18, fontSize: 6.5 },
+      1: { cellWidth: 38, fontSize: 6.5 },
+      2: { cellWidth: 12, halign: 'center', fontSize: 7 },
+      3: { cellWidth: 36, fontSize: 6.5 },
+      4: { cellWidth: 14, halign: 'center', fontSize: 6.5 },
+      5: { cellWidth: 14, halign: 'center', fontSize: 6.5 },
+      6: { cellWidth: 14, halign: 'center', fontSize: 6.5 },
+      7: { cellWidth: 20, fontSize: 6.5 },
+      8: { cellWidth: 16, fontSize: 6.5 }
+    },
+    margin: { left: margin, right: margin },
+    // IMPORTANT : Ne pas couper un vol entre 2 pages
+    rowPageBreak: 'avoid',
+    didDrawPage: (data) => {
+      // Numéro de page en bas
+      const pageCount = doc.internal.getNumberOfPages()
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      doc.text(
+        `Page ${data.pageNumber} / ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 5,
+        { align: 'center' }
+      )
+      
+      // Légende en pied de dernière page
+      if (data.pageNumber === pageCount) {
+        const legendY = pageHeight - 25
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'bold')
+        doc.text('*OBS :', margin, legendY)
+        doc.setFont('helvetica', 'normal')
+        doc.text('kéro max et/ou numéro VEMD et/ou cycle moteur ou autre info utile (facultatif)', margin + 10, legendY)
+        
+        // Signature
         doc.setFontSize(8)
-        doc.text(
-          `Page ${data.pageNumber} / ${pageCount}`,
-          pageWidth / 2,
-          pageHeight - 5,
-          { align: 'center' }
-        )
+        doc.setFont('helvetica', 'bold')
+        doc.text('Nom, Prénom et signature du CDB :', margin, legendY + 8)
+        doc.line(margin + 60, legendY + 10, margin + 120, legendY + 10)
       }
-    })
-
-    currentY = doc.lastAutoTable.finalY + 5
-  }
-
-  // ============================================
-  // LÉGENDE ET SIGNATURES
-  // ============================================
-  
-  // Vérifier s'il reste assez d'espace, sinon nouvelle page
-  if (currentY > pageHeight - 40) {
-    doc.addPage()
-    currentY = margin
-  }
-
-  currentY += 5
-
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Légende :', margin, currentY)
-  currentY += 4
-  doc.setFont('helvetica', 'normal')
-  doc.text('V = N° vol  |  K = Cas de vol  |  M = Masse bagages  |  T = Type mission (TP/MEP)', margin, currentY)
-  currentY += 4
-  doc.text('H = Homme  |  F = Femme  |  E = Enfant', margin, currentY)
-  currentY += 8
-
-  // Signature
-  doc.setFont('helvetica', 'bold')
-  doc.text('Signature du Commandant de Bord :', margin, currentY)
-  currentY += 15
-  doc.line(margin, currentY, margin + 60, currentY)
+    }
+  })
 
   // ============================================
   // OUVRIR LE PDF DANS UN NOUVEL ONGLET

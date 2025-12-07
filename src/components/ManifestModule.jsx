@@ -149,10 +149,17 @@ export default function PVEModule({ userId, userRole, username }) {
   const calculateLoadingCase = (passengers) => {
     if (passengers.length === 0) return null
 
+    if (loadingCases.length === 0) {
+      console.warn('⚠️ Aucun cas de chargement - Sélectionnez un appareil d\'abord')
+      return null
+    }
+
     const hommes = passengers.filter(p => p.type === 'H').length
     const femmes = passengers.filter(p => p.type === 'F').length
     const enfants = passengers.filter(p => p.type === 'E').length
     const total = hommes + femmes + enfants
+
+    console.log(`Recherche cas: ${total} pax (H:${hommes} F:${femmes} E:${enfants})`)
 
     // Trouver le cas correspondant
     const matchingCase = loadingCases.find(c => 
@@ -161,6 +168,12 @@ export default function PVEModule({ userId, userRole, username }) {
       c.femmes === femmes &&
       c.enfants === enfants
     )
+
+    if (matchingCase) {
+      console.log(`✅ Cas trouvé: #${matchingCase.case_number}`)
+    } else {
+      console.log(`❌ Aucun cas trouvé pour cette combinaison`)
+    }
 
     return matchingCase
   }
@@ -768,6 +781,16 @@ export default function PVEModule({ userId, userRole, username }) {
 
                     {/* Cas de vol calculé */}
                     {newFlight.passengers.length > 0 && (() => {
+                      if (loadingCases.length === 0) {
+                        return (
+                          <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                            <p className="text-xs font-semibold text-orange-600">
+                              ⚠️ Sélectionnez d'abord un appareil pour calculer le cas de vol
+                            </p>
+                          </div>
+                        )
+                      }
+                      
                       const cas = calculateLoadingCase(newFlight.passengers)
                       const keroseneMax = cas ? calculateMaxKerosene(cas, newFlight.bagages_kg || 0) : 0
                       return (
@@ -779,6 +802,11 @@ export default function PVEModule({ userId, userRole, username }) {
                             <p className="text-xs">
                               ⛽ Kérosène max: <span className={keroseneMax === 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>{keroseneMax}%</span>
                               {keroseneMax === 0 && <span className="ml-2 text-red-600">⚠️ VOL IMPOSSIBLE</span>}
+                            </p>
+                          )}
+                          {!cas && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              Cette combinaison de passagers n'est pas autorisée pour cet appareil
                             </p>
                           )}
                         </div>
