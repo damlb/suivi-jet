@@ -17,6 +17,7 @@ export default function DropZonesModule({ userId, userRole }) {
   const [formData, setFormData] = useState({
     name: '',
     oaci_code: '',
+    short_code: '',
     latitude: '',
     longitude: '',
     notes: '',
@@ -87,6 +88,7 @@ export default function DropZonesModule({ userId, userRole }) {
       setFormData({
         name: dz.name,
         oaci_code: dz.oaci_code || '',
+        short_code: dz.short_code || '',
         latitude: dz.latitude.toString(),
         longitude: dz.longitude.toString(),
         notes: dz.notes || '',
@@ -98,6 +100,7 @@ export default function DropZonesModule({ userId, userRole }) {
       setFormData({
         name: '',
         oaci_code: '',
+        short_code: '',
         latitude: '',
         longitude: '',
         notes: '',
@@ -129,6 +132,7 @@ export default function DropZonesModule({ userId, userRole }) {
     const dataToSave = {
       name: formData.name,
       oaci_code: formData.oaci_code || null,
+      short_code: formData.short_code || null,
       latitude: lat,
       longitude: lng,
       notes: formData.notes || null,
@@ -524,21 +528,21 @@ export default function DropZonesModule({ userId, userRole }) {
               onClick={() => openModal(dz)}
             >
               <CardContent className="p-2">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-1.5">
                   <div className="flex-1 min-w-0">
-                    {/* Nom + Code OACI */}
-                    <div className="flex items-center gap-1 mb-1 flex-wrap">
-                      <h3 className="font-bold text-sm">{dz.name}</h3>
-                      {dz.oaci_code && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">
-                          {dz.oaci_code}
+                    {/* Nom + Code court */}
+                    <div className="flex items-center gap-1 mb-0.5 flex-wrap">
+                      <h3 className="font-bold text-xs">{dz.name}</h3>
+                      {(dz.short_code || dz.oaci_code) && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-mono">
+                          {dz.short_code || dz.oaci_code}
                         </span>
                       )}
                     </div>
 
                     {/* Coordonnées (facilement copiables) */}
                     <div 
-                      className="text-xs font-mono bg-gray-100 px-1.5 py-0.5 rounded inline-block mb-1 cursor-text select-all"
+                      className="text-xs font-mono bg-gray-100 px-1 py-0.5 rounded inline-block cursor-text select-all"
                       onClick={(e) => e.stopPropagation()}
                       title="Cliquer pour sélectionner et copier"
                     >
@@ -547,7 +551,7 @@ export default function DropZonesModule({ userId, userRole }) {
 
                     {/* Notes */}
                     {dz.notes && (
-                      <p className="text-xs text-gray-600 mt-1 line-clamp-1">
+                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">
                         💬 {dz.notes}
                       </p>
                     )}
@@ -618,6 +622,24 @@ export default function DropZonesModule({ userId, userRole }) {
                   className="w-full p-2 border rounded-lg text-sm font-mono"
                   maxLength={4}
                 />
+              </div>
+
+              {/* Code court (short_code) */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Code court (diminutif)
+                </label>
+                <input
+                  type="text"
+                  value={formData.short_code || ''}
+                  onChange={(e) => setFormData({ ...formData, short_code: e.target.value.toUpperCase() })}
+                  placeholder="Ex: PVC, AJA, BIA"
+                  className="w-full p-2 border rounded-lg text-sm font-mono"
+                  maxLength={3}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Utilisé pour afficher les DZ en mobile (3 lettres max)
+                </p>
               </div>
 
               {/* Coordonnées */}

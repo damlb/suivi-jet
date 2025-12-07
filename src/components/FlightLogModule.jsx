@@ -625,8 +625,8 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
 
       {/* 2️⃣ BOUTONS PRINCIPAUX */}
       <Card>
-        <CardContent className="pt-3 sm:pt-6">
-          <div className="space-y-3 sm:space-y-4">
+        <CardContent className="p-3 sm:p-6">
+          <div className="space-y-2 sm:space-y-4">
             {/* Recherche Drop Zone */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -826,14 +826,29 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
                       onClick={() => userRole === 'pilote' && !flight.in_progress && handleEditFlight(flight)}
                     >
                       <div className="font-semibold text-sm sm:text-lg mb-1">
-                        {flight.departure_dz?.name || flight.departure_location || '📍 Départ à préciser'}
-                        {flight.arrival_dz?.name ? (
-                          <> → {flight.arrival_dz.name}</>
-                        ) : flight.arrival_location ? (
-                          <> → {flight.arrival_location}</>
-                        ) : !flight.in_progress ? (
-                          <> → 📍 Arrivée à préciser</>
-                        ) : null}
+                        {/* Mobile : codes courts */}
+                        <span className="sm:hidden">
+                          {flight.departure_dz?.oaci_code || flight.departure_dz?.short_code || flight.departure_location?.substring(0, 15) || '📍 Départ'}
+                          {flight.arrival_dz?.oaci_code || flight.arrival_dz?.short_code ? (
+                            <> → {flight.arrival_dz.oaci_code || flight.arrival_dz.short_code}</>
+                          ) : flight.arrival_location ? (
+                            <> → {flight.arrival_location.substring(0, 15)}</>
+                          ) : !flight.in_progress ? (
+                            <> → 📍 Arrivée</>
+                          ) : null}
+                        </span>
+                        
+                        {/* Desktop : noms complets */}
+                        <span className="hidden sm:inline">
+                          {flight.departure_dz?.name || flight.departure_location || '📍 Départ à préciser'}
+                          {flight.arrival_dz?.name ? (
+                            <> → {flight.arrival_dz.name}</>
+                          ) : flight.arrival_location ? (
+                            <> → {flight.arrival_location}</>
+                          ) : !flight.in_progress ? (
+                            <> → 📍 Arrivée à préciser</>
+                          ) : null}
+                        </span>
                       </div>
                       <div className="text-xs sm:text-sm text-gray-600 space-y-1">
                         <div className="flex items-center gap-2">
