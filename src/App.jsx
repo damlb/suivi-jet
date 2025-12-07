@@ -295,6 +295,7 @@ function App() {
               <FlightLogModule 
                 userId={session.user.id} 
                 userRole={userRole}
+                setActiveModule={setActiveModule}
               />
             )}
             {activeModule === 'notes' && <NotesModule currentUser={username || 'Utilisateur'} />}
