@@ -31,6 +31,8 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
   const [editArrivalDZ, setEditArrivalDZ] = useState(null)
   const [editSearchDeparture, setEditSearchDeparture] = useState('')
   const [editSearchArrival, setEditSearchArrival] = useState('')
+  const [editDepartureTime, setEditDepartureTime] = useState('')
+  const [editArrivalTime, setEditArrivalTime] = useState('')
 
   useEffect(() => {
     loadData()
@@ -270,6 +272,16 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
       id: flight.arrival_dz_id, 
       name: flight.arrival_dz?.name || flight.arrival_location 
     } : null)
+    
+    // Initialiser les heures au format datetime-local
+    if (flight.departure_time) {
+      const departureDate = new Date(flight.departure_time)
+      setEditDepartureTime(departureDate.toISOString().slice(0, 16))
+    }
+    if (flight.arrival_time) {
+      const arrivalDate = new Date(flight.arrival_time)
+      setEditArrivalTime(arrivalDate.toISOString().slice(0, 16))
+    }
   }
 
   const handleSaveEditFlight = async () => {
@@ -291,6 +303,14 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
       updateData.arrival_lng = editArrivalDZ.longitude
     }
 
+    // Ajouter les heures si modifiées
+    if (editDepartureTime) {
+      updateData.departure_time = new Date(editDepartureTime).toISOString()
+    }
+    if (editArrivalTime) {
+      updateData.arrival_time = new Date(editArrivalTime).toISOString()
+    }
+
     const { error } = await supabase
       .from('flight_logs')
       .update(updateData)
@@ -302,6 +322,8 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
       setEditArrivalDZ(null)
       setEditSearchDeparture('')
       setEditSearchArrival('')
+      setEditDepartureTime('')
+      setEditArrivalTime('')
       loadFlights()
       alert('✅ Vol mis à jour')
     } else {
@@ -311,18 +333,26 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
   }
 
   const handleDeleteFlight = async (flight) => {
+    console.log('🗑️ Tentative suppression vol:', flight.id)
+    
     const departureLocation = flight.departure_dz?.name || flight.departure_location || 'Départ non précisé'
     const arrivalLocation = flight.arrival_dz?.name || flight.arrival_location || 'Arrivée non précisée'
     const flightDate = new Date(flight.departure_time).toLocaleDateString('fr-FR')
     
     const confirmMessage = `⚠️ Êtes-vous sûr de vouloir supprimer ce vol ?\n\n📍 ${departureLocation} → ${arrivalLocation}\n📅 ${flightDate}\n\nCette action est irréversible.`
     
-    if (!confirm(confirmMessage)) return
+    if (!confirm(confirmMessage)) {
+      console.log('❌ Suppression annulée par l\'utilisateur')
+      return
+    }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('flight_logs')
       .delete()
       .eq('id', flight.id)
+      .select()
+
+    console.log('Résultat suppression:', { data, error })
 
     if (!error) {
       loadFlights()
@@ -332,8 +362,8 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
       }
       alert('✅ Vol supprimé')
     } else {
-      console.error('Erreur suppression vol:', error)
-      alert('❌ Erreur lors de la suppression')
+      console.error('❌ Erreur suppression vol complète:', error)
+      alert(`❌ Erreur lors de la suppression: ${error.message}`)
     }
   }
 
@@ -945,6 +975,8 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
             setEditArrivalDZ(null)
             setEditSearchDeparture('')
             setEditSearchArrival('')
+            setEditDepartureTime('')
+            setEditArrivalTime('')
           }}
         >
           <Card 
@@ -1030,6 +1062,33 @@ export default function FlightLogModule({ userId, userRole, setActiveModule }) {
                       ✅ {editArrivalDZ.name}
                     </div>
                   )}
+                </div>
+
+                {/* Heures de départ et d'arrivée */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      🕐 Heure de décollage
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={editDepartureTime}
+                      onChange={(e) => setEditDepartureTime(e.target.value)}
+                      className="w-full p-2 sm:p-3 border rounded-lg text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      🕐 Heure d'atterrissage
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={editArrivalTime}
+                      onChange={(e) => setEditArrivalTime(e.target.value)}
+                      className="w-full p-2 sm:p-3 border rounded-lg text-sm"
+                    />
+                  </div>
                 </div>
 
                 {/* Boutons */}
